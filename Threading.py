@@ -8,41 +8,42 @@ from drawnow import *
 import threading
 from time import sleep
 
+global modeselect
+modeselect = 'Windows'
+#modeselect = 'Mac'
+#modeselect = 'Frank'
+
+
 #Globale Variable
-global scaler_x
+global scaler_x #X-Achsen Skalierung
 scaler_x = 1
 
-global scaler_y
-scaler_y = 10
+global scaler_y #Y-Achsen Skalierung
+scaler_y = 5
 
-global trigger
+global trigger #Variable für Triggerschwelle
 trigger = 0.0
 
-global data
+global data #Variable in die ausgelesene Daten geschrieben werden
 data = 0
 
-global event
+global event #Event für Threading Prozess
 event = threading.Event()
 
-#Daten für Plot
-data_x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
-data_y = [4.0, 7.0, 1.0, 9.0, 5.0, 2.0, 8.0]
-
-global data_rx_x
+global data_rx_x #Array für Daten auf der x-Achse
 data_rx_x = []
 
-global data_rx_y
+global data_rx_y #Array für Daten auf der y-Achse
 data_rx_y = []
 
 global counter
-#counter = 0
 counter = -scaler_x
 
 global time
-time = 0.1
+time = 860 #Samples per Second des Microcontrollers
 
 #Button-Actions
-def auto_trigger_action():
+def auto_trigger_action(): #todo
     fenster.quit()
 
 def time_update_action():
@@ -62,7 +63,7 @@ def trigger_update_action():
 
 #Fenster erstellen
 fenster = Tk()
-fenster.title("Window with Plot")
+fenster.title("Window with Plot") #Name des Fensters
 fenster.configure(background="white")
 
 def windowClose():
@@ -71,9 +72,13 @@ def windowClose():
 def readLine():
     #später hier Datenstream des ADC auslesen und übergeben
     global data
-    datei = open('/Users/tomschroeter/Desktop/rng.txt', 'r')
-    #datei = open('C:\\Users\\f-luc\\Downloads/tom.txt', 'r')
-    data = datei.readline().strip()
+    if modeselect == 'Windows':
+        datei = open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'r')
+    if modeselect == 'Mac':
+        datei = open('/Users/tomschroeter/Desktop/rng.txt', 'r')
+    if modeselect == 'Frank':
+        datei = open('C:\\Users\\f-luc\\Downloads/tom.txt', 'r')
+    data = datei.readline().strip() #Speichern der eingelesenen Zeile auf globale data-Variable
     datei.close()
 
 def add_data_action():
@@ -88,44 +93,63 @@ def add_data_action():
     #counter = counter + time
     #print(counter)
 
+    #Einordnen der Zeitwerte in das Array - Schrittweite = time = 1/SPS
     data_rx_x.append(float(counter))
-    counter = counter + time
+    counter = counter + (1/time)
 
-
-
-    counter_y = float(data) / 8000
+    #Einordnen der Datenwerte in das Array
+    counter_y = (float(data) / 8000) - 4.096 #Umrechnung Bit-Wert in Volt
     data_rx_y.append(float(counter_y))
-    #print(counter_y)
+
+    # print("Counter y: ", counter_y)
+    # print("Array x: ", data_rx_x)
+    # print("Array y: ", data_rx_y)
 
 def data_retrieve_action(event):
-    # aktualisieren des Labels bei Knopfdruck
-    while (True):
-        if event.is_set():
-            event.clear()
-            break
-        readLine()
-        text_label.config(text=data)
+    #aktualisieren des Labels bei Knopfdruck
+    # while (True):
+    #     if event.is_set():
+    #         event.clear()
+    #         break
+        readLine() #Auslesen der Daten und speichern in data-Variable
+        text_label.config(text=data) #Darstellen des Ausgelesenen Wertes im Textlabel
 
-        add_data_action()
+        add_data_action() #Hinzufügen der Werte in Daten- und Zeitarrays
         #print(data_rx_x)
         #print(data_rx_y)
-        makeFig()
-        change_action()
-        #change_action1()   #für Frank
-        #sleep(1)
+
+        #makeFig() #Updaten des Graphen
+
+        #Abändern der Textdatei (nur im Testfall: ohne ADC)
+        if modeselect == 'Windows':
+            change_action()
+        if modeselect == 'Mac':
+            change_action1()
+        if modeselect == 'Frank':
+            change_action2()
+
+# def start_button_action():
+#     #Starten des Threads durch Knopfdruck zum Auslesen der Daten aus der Textdatei
+#     global thread
+#     global event
+#     thread = threading.Thread(target=data_retrieve_action, args=(event, ))
+#     thread.do_run = True
+#     thread.start()
 
 def start_button_action():
-    global thread
-    global event
-    thread = threading.Thread(target=data_retrieve_action, args=(event, ))
-    thread.do_run = True
-    thread.start()
+    global data_rx_y
+    for x in range(time):
+        data_retrieve_action(event)
+        x += 1
+    makeFig()
 
 def stop_button_action():
+    #Stoppen des Auslese-Threads
     global event
     event.set()
 
 def reset_button_action():
+    #Zurücksetzen aller Variablen und updaten des Graphen
     global data_rx_x
     global data_rx_y
     global counter
@@ -134,7 +158,24 @@ def reset_button_action():
     counter = -scaler_x
     makeFig()
 
-def change_action():
+def change_action(): # #für Windows
+    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
+    with open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'r') as fr:
+        lines = fr.readlines()
+        zeile = lines[0]
+        ptr = 0
+
+        with open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'w+') as fw:
+            for line in lines:
+                if ptr != 0:
+                    fw.write(line)
+                ptr += 1
+    f = open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'a')
+    f.write(zeile)
+    f.close()
+
+def change_action1(): #für Mac
+    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
     with open('/Users/tomschroeter/Desktop/rng.txt', 'r') as fr:
         lines = fr.readlines()
         zeile = lines[0]
@@ -149,7 +190,8 @@ def change_action():
     f.write(zeile)
     f.close()
 
-def change_action1(): # #für Frank
+def change_action2(): # #für Frank
+    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
     with open('C:\\Users\\f-luc\\Downloads/tom.txt', 'r') as fr:
         lines = fr.readlines()
         zeile = lines[0]
@@ -170,25 +212,25 @@ def makeFig():
     global data_rx_x
     global data_rx_y
 
+    #Festlegen der Größe des Plots
     fig = Figure(dpi=100)
     fig.set_figwidth(6.25)
     fig.set_figheight(4)
 
-    ax = fig.add_subplot(111)
-    #ax.plot(data_x, data_y, 'g')
-    ax.plot(data_rx_x, data_rx_y, 'g')
-    ax.axhline(y=trigger, color='r')
-    ax.set_xlim(-scaler_x, scaler_x)
-    ax.set_ylim(-scaler_y, scaler_y)
+    ax = fig.add_subplot(111) #Erstellen des Graphen im Plot
+    ax.plot(data_rx_x, data_rx_y, 'g') #Hinzufügen des Graphen mit Werten der data-Arrays
+    ax.axhline(y=trigger, color='r') #rote horizontale Linie für Triggerschwelle
+    ax.set_xlim(-scaler_x, scaler_x) #Festlegen der Randwerte der x-Achse
+    ax.set_ylim(-scaler_y, scaler_y) #Festlegen der Randwerte der y-Achse
 
     canvas = FigureCanvasTkAgg(fig, master=fenster)
     canvas.draw()
 
-    if counter >= scaler_x:
-        fig.clf()
-        data_rx_x = []
-        data_rx_y = []
-        counter = -scaler_x
+    # if counter >= scaler_x:
+    #     fig.clf()
+    #     data_rx_x = []
+    #     data_rx_y = []
+    #     counter = -scaler_x
 
     canvas.get_tk_widget().place(x=175, y=30)
 
@@ -227,7 +269,7 @@ volt_str.set(str(scaler_y))
 time_str.set(str(scaler_x))
 tri_str.set(str(trigger))
 
-volt_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=volt_update_action, textvariable=volt_str)
+volt_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=5, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=volt_update_action, textvariable=volt_str)
 time_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=time_update_action, textvariable=time_str)
 trigger_spinbox = Spinbox(fenster, background="white", width=4, from_=-10, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=trigger_update_action, textvariable=tri_str)
 
