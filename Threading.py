@@ -8,11 +8,6 @@ from drawnow import *
 import threading
 from time import sleep
 
-global modeselect
-modeselect = 'Windows'
-#modeselect = 'Mac'
-#modeselect = 'Frank'
-
 
 #Globale Variable
 global scaler_x #X-Achsen Skalierung
@@ -72,12 +67,7 @@ def windowClose():
 def readLine():
     #später hier Datenstream des ADC auslesen und übergeben
     global data
-    if modeselect == 'Windows':
-        datei = open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'r')
-    if modeselect == 'Mac':
-        datei = open('/Users/tomschroeter/Desktop/rng.txt', 'r')
-    if modeselect == 'Frank':
-        datei = open('C:\\Users\\f-luc\\Downloads/tom.txt', 'r')
+    datei = open('./rng.txt', 'r')
     data = datei.readline().strip() #Speichern der eingelesenen Zeile auf globale data-Variable
     datei.close()
 
@@ -121,12 +111,8 @@ def data_retrieve_action(event):
         #makeFig() #Updaten des Graphen
 
         #Abändern der Textdatei (nur im Testfall: ohne ADC)
-        if modeselect == 'Windows':
-            change_action()
-        if modeselect == 'Mac':
-            change_action1()
-        if modeselect == 'Frank':
-            change_action2()
+        change_action()
+
 
 # def start_button_action():
 #     #Starten des Threads durch Knopfdruck zum Auslesen der Daten aus der Textdatei
@@ -160,51 +146,20 @@ def reset_button_action():
 
 def change_action(): # #für Windows
     # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
-    with open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'r') as fr:
+    with open('./rng.txt', 'r') as fr:
         lines = fr.readlines()
         zeile = lines[0]
         ptr = 0
 
-        with open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'w+') as fw:
+        with open('./rng.txt', 'w+') as fw:
             for line in lines:
                 if ptr != 0:
                     fw.write(line)
                 ptr += 1
-    f = open('C:\\Users\Tom\PycharmProjects\BA_Raspberry/rng.txt', 'a')
+    f = open('./rng.txt', 'a')
     f.write(zeile)
     f.close()
 
-def change_action1(): #für Mac
-    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
-    with open('/Users/tomschroeter/Desktop/rng.txt', 'r') as fr:
-        lines = fr.readlines()
-        zeile = lines[0]
-        ptr = 0
-
-        with open('/Users/tomschroeter/Desktop/rng.txt', 'w+') as fw:
-            for line in lines:
-                if ptr != 0:
-                    fw.write(line)
-                ptr += 1
-    f = open('/Users/tomschroeter/Desktop/rng.txt', 'a')
-    f.write(zeile)
-    f.close()
-
-def change_action2(): # #für Frank
-    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
-    with open('C:\\Users\\f-luc\\Downloads/tom.txt', 'r') as fr:
-        lines = fr.readlines()
-        zeile = lines[0]
-        ptr = 0
-
-        with open('C:\\Users\\f-luc\\Downloads/tom.txt', 'w+') as fw:
-            for line in lines:
-                if ptr != 0:
-                    fw.write(line)
-                ptr += 1
-    f = open('C:\\Users\\f-luc\\Downloads/tom.txt', 'a')
-    f.write(zeile)
-    f.close()
 
 #Erstellen des Graphen
 def makeFig():
