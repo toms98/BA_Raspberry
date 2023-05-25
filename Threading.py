@@ -44,24 +44,30 @@ def auto_trigger_action(): #todo
 def time_update_action():
     global scaler_x
     scaler_x = float(time_spinbox.get())
+    stop_button_action()
+    reset_button_action()
+    start_button_action()
     makeFig()
 
 def volt_update_action():
     global scaler_y
     scaler_y = float(volt_spinbox.get())
+    stop_button_action()
+    reset_button_action()
+    start_button_action()
     makeFig()
 
 def trigger_update_action():
     global trigger
     trigger = float(trigger_spinbox.get())
+    stop_button_action()
+    reset_button_action()
+    start_button_action()
     makeFig()
 
-#Fenster erstellen
-fenster = Tk()
-fenster.title("Window with Plot") #Name des Fensters
-fenster.configure(background="white")
-
 def windowClose():
+    global event
+    event.set()
     fenster.destroy()
 
 def readLine():
@@ -79,10 +85,6 @@ def add_data_action():
     global time
     global scaler_x
 
-    #data_rx_x.append(float(counter))
-    #counter = counter + time
-    #print(counter)
-
     #Einordnen der Zeitwerte in das Array - Schrittweite = time = 1/SPS
     data_rx_x.append(float(counter))
     counter = counter + (1/time)
@@ -97,37 +99,25 @@ def add_data_action():
 
 def data_retrieve_action(event):
     #aktualisieren des Labels bei Knopfdruck
-    # while (True):
-    #     if event.is_set():
-    #         event.clear()
-    #         break
-        readLine() #Auslesen der Daten und speichern in data-Variable
-        text_label.config(text=data) #Darstellen des Ausgelesenen Wertes im Textlabel
+    while (True):
+        if event.is_set():
+            event.clear()
+            break
 
-        add_data_action() #Hinzufügen der Werte in Daten- und Zeitarrays
-        #print(data_rx_x)
-        #print(data_rx_y)
+        for x in range(int(time * (scaler_x * 2))):
+            readLine()
+            add_data_action()
+            change_action()
+            x += 1
 
-        #makeFig() #Updaten des Graphen
-
-        #Abändern der Textdatei (nur im Testfall: ohne ADC)
-        change_action()
-
-
-# def start_button_action():
-#     #Starten des Threads durch Knopfdruck zum Auslesen der Daten aus der Textdatei
-#     global thread
-#     global event
-#     thread = threading.Thread(target=data_retrieve_action, args=(event, ))
-#     thread.do_run = True
-#     thread.start()
+        makeFig()
 
 def start_button_action():
-    global data_rx_y
-    for x in range(time):
-        data_retrieve_action(event)
-        x += 1
-    makeFig()
+    global thread
+    global event
+    thread = threading.Thread(target=data_retrieve_action, args=(event, ))
+    thread.do_run = True
+    thread.start()
 
 def stop_button_action():
     #Stoppen des Auslese-Threads
@@ -144,7 +134,10 @@ def reset_button_action():
     counter = -scaler_x
     makeFig()
 
-def change_action(): # #für Windows
+def trigger_button_action(): #todo
+    fenster.quit()
+
+def change_action():
     # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
     with open('./rng.txt', 'r') as fr:
         lines = fr.readlines()
@@ -181,14 +174,17 @@ def makeFig():
     canvas = FigureCanvasTkAgg(fig, master=fenster)
     canvas.draw()
 
-    # if counter >= scaler_x:
-    #     fig.clf()
-    #     data_rx_x = []
-    #     data_rx_y = []
-    #     counter = -scaler_x
+    if counter >= scaler_x:
+        data_rx_x = []
+        data_rx_y = []
+        counter = -scaler_x
 
     canvas.get_tk_widget().place(x=175, y=30)
 
+#Fenster erstellen
+fenster = Tk()
+fenster.title("Window with Plot") #Name des Fensters
+fenster.configure(background="white")
 
 #plt.rcParams['toolbar'] = 'None' #anscheinend unnötig bei canvas
 
@@ -205,6 +201,8 @@ cursor_label = Label(fenster, text="mV", bg="#FFF", fg="#000", font="Oswald, 24"
 cur_fre_label = Label(fenster, text="0", bg="#FFF", fg="#000", font="Oswald, 24")
 cur_per_label = Label(fenster, text="0", bg="#FFF", fg="#000", font="Oswald, 24")
 cur_vol_label = Label(fenster, text="0", bg="#FFF", fg="#000", font="Oswald, 24")
+
+trigger_button_label = Label(fenster, text="Trigger", bg="#FFF", fg="#000", font="Oswald, 8")
 
 text_label = Label(fenster, text=data, bg="#FFF", fg="#000", font="Oswald, 18")
 
@@ -228,6 +226,9 @@ volt_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=5, incr
 time_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=time_update_action, textvariable=time_str)
 trigger_spinbox = Spinbox(fenster, background="white", width=4, from_=-10, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=trigger_update_action, textvariable=tri_str)
 
+#Checkbox
+trigger_checkbox = Checkbutton(fenster, background="white", font="Oswald, 18", fg="#000", bg="#FFF", command=trigger_button_action)
+
 #Window
 fenster.geometry("800x480")
 
@@ -248,6 +249,7 @@ stop_button.place(x=15, y=330)
 reset_button.place(x=15, y=360)
 
 auto_trigger_button.place(x=15, y=270)
+trigger_checkbox.place(x=90, y=260)
 
 cur_fre_label.place(x=35, y=390)
 cur_per_label.place(x=35, y=420)
@@ -256,6 +258,8 @@ cur_vol_label.place(x=35, y=450)
 frequency_label.place(x=65, y=390)
 period_label.place(x=65, y=420)
 cursor_label.place(x=65, y=450)
+
+trigger_button_label.place(x=120, y=270)
 
 #canvas.get_tk_widget().place(x=175, y=30)
 exit_button.place(x=730, y=450)
