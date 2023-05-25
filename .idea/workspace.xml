@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e50d341d-50b3-40a0-9443-f57187233a10" name="Changes" comment="Commit mit neuen Files">
-      <change beforePath="$PROJECT_DIR$/.idea/Test.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Test.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="e50d341d-50b3-40a0-9443-f57187233a10" name="Changes" comment="Signaldarstellung angepasst&#10;Unnötige Codeschnipsel entfernt&#10;Checkbox hinzugefügt (ohne Funktion)">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Threading.py" beforeDir="false" afterPath="$PROJECT_DIR$/Threading.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/rng.txt" beforeDir="false" afterPath="$PROJECT_DIR$/rng.txt" afterDir="false" />
@@ -218,7 +216,14 @@
       <option name="project" value="LOCAL" />
       <updated>1684959856184</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Signaldarstellung angepasst&#10;Unnötige Codeschnipsel entfernt&#10;Checkbox hinzugefügt (ohne Funktion)">
+      <created>1685016327023</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1685016327023</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -237,7 +242,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Systemabhängikeit entfernt&#10;Zugriff auf rng über relativen Pfad" />
-    <option name="LAST_COMMIT_MESSAGE" value="Systemabhängikeit entfernt&#10;Zugriff auf rng über relativen Pfad" />
+    <MESSAGE value="Signaldarstellung angepasst&#10;Unnötige Codeschnipsel entfernt&#10;Checkbox hinzugefügt (ohne Funktion)" />
+    <option name="LAST_COMMIT_MESSAGE" value="Signaldarstellung angepasst&#10;Unnötige Codeschnipsel entfernt&#10;Checkbox hinzugefügt (ohne Funktion)" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/BA_Raspberry$Threading.coverage" NAME="Threading Coverage Results" MODIFIED="1684959803435" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
