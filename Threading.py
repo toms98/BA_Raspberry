@@ -82,7 +82,7 @@ def readLine():
     # später hier Datenstream des ADC auslesen und übergeben
     global data
     datei = open('./rng.txt', 'r')
-    data = datei.readline().strip()  # Speichern der eingelesenen Zeile auf globale data-Variable
+    data = (float(datei.readline().strip()) / 8000) - 4.096  # Speichern der eingelesenen Zeile auf globale data-Variable
     datei.close()
 
 
@@ -99,8 +99,8 @@ def add_data_action():
     counter = counter + (1 / time)
 
     # Einordnen der Datenwerte in das Array
-    counter_y = (float(data) / 8000) - 4.096  # Umrechnung Bit-Wert in Volt
-    data_rx_y.append(float(counter_y))
+    # counter_y = data  # Umrechnung Bit-Wert in Volt
+    data_rx_y.append(data)
 
     # print("Counter y: ", counter_y)
     # print("Array x: ", data_rx_x)
@@ -112,27 +112,46 @@ def data_retrieve_action(event):
     global trigger
     global data
     global checker
+    data_old = 0.0
+    has_data_old = False
 
     while (True):
         if event.is_set():
             event.clear()
             break
 
+        has_data_old = False
+
         if checker == True:
-            readLine()
+            # for x in range(int(time * (scaler_x * 2))):
+            #     readLine()
+            #     data2 = round((float(data) / 8000) - 4.096)
+            #     if data2 == int(trigger):
+            #         readLine()
+            #         add_data_action()
+            #         change_action()
+            #         #x += 1
+            #         makeFig()
+            #     else:
+            #         change_action()
+            #         #print(data)
+
             for x in range(int(time * (scaler_x * 2))):
                 readLine()
-                data2 = round((float(data) / 8000) - 4.096)
-                if data2 == int(trigger):
-                    readLine()
-                    add_data_action()
+                # print(round(data, 2), " - ", trigger, " - ", round(data_old, 2))
+                if not has_data_old:
+                    data_old = data
+                    has_data_old = True
                     change_action()
-                    x += 1
+                    continue
+                if (data >= trigger >= data_old) or (data <= trigger <= data_old):
                     makeFig()
-                else:
-                    change_action()
-                    print(data)
-            print("Data: ", data2)
+                add_data_action()
+                change_action()
+
+                data_old = data
+
+            #print("Data: ", data2)
             print("Trigger:", trigger)
         else:
             for x in range(int(time * (scaler_x * 2))):
