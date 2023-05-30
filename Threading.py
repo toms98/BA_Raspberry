@@ -114,6 +114,7 @@ def data_retrieve_action(event):
     global checker
     data_old = 0.0
     has_data_old = False
+    is_triggered = False
 
     while (True):
         if event.is_set():
@@ -145,14 +146,16 @@ def data_retrieve_action(event):
                     change_action()
                     continue
                 if (data >= trigger >= data_old) or (data <= trigger <= data_old):
+                    is_triggered = True
+                if is_triggered == True:
+                    add_data_action()
+                    change_action()
                     makeFig()
-                add_data_action()
-                change_action()
 
                 data_old = data
 
             #print("Data: ", data2)
-            print("Trigger:", trigger)
+            #print("Trigger:", trigger)
         else:
             for x in range(int(time * (scaler_x * 2))):
                 readLine()
