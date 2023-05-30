@@ -79,11 +79,28 @@ def windowClose():
 
 
 def readLine():
+    name = "./rng2.txt"
+
     # später hier Datenstream des ADC auslesen und übergeben
     global data
-    datei = open('./rng.txt', 'r')
+    datei = open(name, 'r')
     data = (float(datei.readline().strip()) / 8000) - 4.096  # Speichern der eingelesenen Zeile auf globale data-Variable
     datei.close()
+
+    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
+    with open(name, 'r') as fr:
+        lines = fr.readlines()
+        zeile = lines[0]
+        ptr = 0
+
+        with open(name, 'w+') as fw:
+            for line in lines:
+                if ptr != 0:
+                    fw.write(line)
+                ptr += 1
+    f = open(name, 'a')
+    f.write(zeile)
+    f.close()
 
 
 def add_data_action():
@@ -143,13 +160,11 @@ def data_retrieve_action(event):
                 if not has_data_old:
                     data_old = data
                     has_data_old = True
-                    change_action()
                     continue
                 if (data >= trigger >= data_old) or (data <= trigger <= data_old):
                     is_triggered = True
                 if is_triggered == True:
                     add_data_action()
-                    change_action()
                     makeFig()
 
                 data_old = data
@@ -160,7 +175,6 @@ def data_retrieve_action(event):
             for x in range(int(time * (scaler_x * 2))):
                 readLine()
                 add_data_action()
-                change_action()
             makeFig()
         #
         #
@@ -171,7 +185,7 @@ def data_retrieve_action(event):
         #     change_action()
         #     x += 1
         #
-        # makeFig()
+        #makeFig()
 
 
 def start_button_action():
@@ -206,23 +220,6 @@ def trigger_button_action():
     else:
         checker = False
     print(checker)
-
-
-def change_action():
-    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
-    with open('./rng.txt', 'r') as fr:
-        lines = fr.readlines()
-        zeile = lines[0]
-        ptr = 0
-
-        with open('./rng.txt', 'w+') as fw:
-            for line in lines:
-                if ptr != 0:
-                    fw.write(line)
-                ptr += 1
-    f = open('./rng.txt', 'a')
-    f.write(zeile)
-    f.close()
 
 
 # Erstellen des Graphen
