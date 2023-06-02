@@ -102,90 +102,132 @@ def readLine():
     f.write(zeile)
     f.close()
 
+# global data_rx_x
+# data_rx_x = []
+# global data_rx_y
+# data_rx_y = []
+# global counter
+# counter = 0
+# def add_data_action(data):
+#     global data_rx_x
+#     global data_rx_y
+#     global counter
+#     global samplePerSecond
+#     global scaler_x
+#
+#     # Einordnen der Zeitwerte in das Array - Schrittweite = time = 1/SPS
+#     data_rx_x.append(float(counter))
+#     counter = counter + (1 / samplePerSecond)
+#
+#     # Einordnen der Datenwerte in das Array
+#     # counter_y = data # Umrechnung Bit-Wert in Volt
+#     data_rx_y.append(data)
+#
+#     # print("Counter y: ", counter_y)
+#     # print("Array x: ", data_rx_x)
+#     # print("Array y: ", data_rx_y)
+#
+#
+# def data_retrieve_action():
+#     # aktualisieren des Labels bei Knopfdruck
+#     global trigger
+#     global checker
+#     global event
+#     data_old = 0.0
+#     is_triggered = False
+#     doBreak = False
+#
+#     while (True):
+#         if event.is_set():
+#             event.clear()
+#             break
+#
+#         has_data_old = False
+#
+#         if checker == True:
+#
+#
+#             for x in range(int(samplePerSecond * (scaler_x * 2))):
+#                 data = readLine()
+#                 # print(round(data, 2), " - ", trigger, " - ", round(data_old, 2))
+#
+#                 if event.is_set():
+#                     event.clear()
+#                     doBreak = True
+#                     break
+#
+#                 if not has_data_old:
+#                     data_old = data
+#                     has_data_old = True
+#                     continue
+#                 if (data >= trigger >= data_old) or (data <= trigger <= data_old):
+#                     is_triggered = True
+#                 if is_triggered == True:
+#                     add_data_action(data)
+#                     makeFig()
+#
+#                 data_old = data
+#
+#             #print("Data: ", data2)
+#             #print("Trigger:", trigger)
+#         else:
+#             for x in range(int(samplePerSecond * (scaler_x * 2))):
+#                 data = readLine()
+#                 add_data_action(data)
+#
+#                 if event.is_set():
+#                     event.clear()
+#                     doBreak = True
+#                     break
+#
+#             makeFig()
+#         if doBreak:
+#             break
 
-def add_data_action():
-    global data_rx_x
-    global data_rx_y
-    global data
-    global counter
-    global time
-    global scaler_x
 
-    # Einordnen der Zeitwerte in das Array - Schrittweite = time = 1/SPS
-    data_rx_x.append(float(counter))
-    counter = counter + (1 / time)
-
-    # Einordnen der Datenwerte in das Array
-    # counter_y = data  # Umrechnung Bit-Wert in Volt
-    data_rx_y.append(data)
-
-    # print("Counter y: ", counter_y)
-    # print("Array x: ", data_rx_x)
-    # print("Array y: ", data_rx_y)
-
-
-def data_retrieve_action(event):
+def mainThread():
     # aktualisieren des Labels bei Knopfdruck
     global trigger
-    global data
     global checker
-    data_old = 0.0
-    has_data_old = False
+    data_old = None
     is_triggered = False
+
+    # todo
+    global data_x
+    global data_y
+
+    for i in range(round(-scaler_x * 2 * samplePerSecond), round(scaler_x * 2 * samplePerSecond)):
+        data_x.append(i / samplePerSecond)
 
     while (True):
         if event.is_set():
             event.clear()
             break
+        data = readLine()
 
-        has_data_old = False
-
-        if checker == True:
-            # for x in range(int(time * (scaler_x * 2))):
-            #     readLine()
-            #     data2 = round((float(data) / 8000) - 4.096)
-            #     if data2 == int(trigger):
-            #         readLine()
-            #         add_data_action()
-            #         change_action()
-            #         #x += 1
-            #         makeFig()
+        # Trigger
+        if trigger:
+            # if is_triggered:
+            #
+            # else:
+            #     if data_old is None:
+            #         data_old = data
+            #     elif (data >= trigger >= data_old) or (data <= trigger <= data_old):
+            #         data_old = None
+            #         data_y.append(data)
+            #         is_triggered = True
             #     else:
-            #         change_action()
-            #         #print(data)
+            #         data_old = data
+            print()
 
-            for x in range(int(time * (scaler_x * 2))):
-                readLine()
-                # print(round(data, 2), " - ", trigger, " - ", round(data_old, 2))
-                if not has_data_old:
-                    data_old = data
-                    has_data_old = True
-                    continue
-                if (data >= trigger >= data_old) or (data <= trigger <= data_old):
-                    is_triggered = True
-                if is_triggered == True:
-                    add_data_action()
-                    makeFig()
 
-                data_old = data
-
-            #print("Data: ", data2)
-            #print("Trigger:", trigger)
+        # nicht Trigger
         else:
-            for x in range(int(time * (scaler_x * 2))):
-                readLine()
-                add_data_action()
+            data_y.append(data)
+            if len(data_y) >= 4 * scaler_x * samplePerSecond:
+                data_y.pop()
             makeFig()
-        #
-        #
-        #
-        # for x in range(int(time * (scaler_x * 2))):
-        #     readLine()
-        #     add_data_action()
-        #     change_action()
-        #     x += 1
-        #
-        #makeFig()
+
 
 
 def start_button_action():
@@ -318,7 +360,7 @@ time_label.place(x=90, y=150)
 trigger_label.place(x=90, y=210)
 
 start_button.place(x=15, y=300)
-text_label.place(x=90, y=300)
+#text_label.place(x=90, y=300)
 stop_button.place(x=15, y=330)
 reset_button.place(x=15, y=360)
 
@@ -335,7 +377,6 @@ cursor_label.place(x=65, y=450)
 
 trigger_button_label.place(x=120, y=270)
 
-# canvas.get_tk_widget().place(x=175, y=30)
 exit_button.place(x=730, y=450)
 
 # Main
