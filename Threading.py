@@ -38,7 +38,8 @@ global data_x
 data_x = []
 global data_y
 data_y = []
-
+global isRunning
+isRunning = False
 
 # Button-Actions
 def auto_trigger_action():  # todo
@@ -86,7 +87,7 @@ counterDaten = 0
 def readLine():
     global textDaten
     global counterDaten
-    name = "./rng2.txt"
+    name = "./rng3.txt"
 
     if textDaten is None:
         datei = open(name, 'r')
@@ -188,6 +189,7 @@ def mainThread():
     # aktualisieren des Labels bei Knopfdruck
     global trigger
     global checker
+    global scaler_x
     data_old = None
     is_triggered = False
 
@@ -195,42 +197,60 @@ def mainThread():
     global data_x
     global data_y
 
+    POINTS_TOGETHER = 100
+
     for i in range(round(-scaler_x * 2 * samplePerSecond), round(scaler_x * 2 * samplePerSecond)):
         data_x.append(i / samplePerSecond)
+
+    counter = 0
 
     while (True):
         if event.is_set():
             event.clear()
             break
         data = readLine()
-
         # Trigger
-        if trigger:
-            # if is_triggered:
-            #
-            # else:
-            #     if data_old is None:
-            #         data_old = data
-            #     elif (data >= trigger >= data_old) or (data <= trigger <= data_old):
-            #         data_old = None
-            #         data_y.append(data)
-            #         is_triggered = True
-            #     else:
-            #         data_old = data
-            print()
+        if checker:
+            if is_triggered:
+                print(end="")
+            else:
+                if data_old is None:
+                    data_old = data
+                elif (data >= trigger >= data_old) or (data <= trigger <= data_old):
+                    data_old = None
+                    data_y.append(data)
+                    is_triggered = True
+                else:
+                    data_old = data
+                data_y.append(data)
+                if len(data_y) > scaler_x * samplePerSecond / 2:
+                    data_y.remove(data_y[0])
+                if counter == 0:
+                    makeFig()
+                counter += 1
+                counter %= POINTS_TOGETHER
 
 
         # nicht Trigger
         else:
             data_y.append(data)
             if len(data_y) >= 4 * scaler_x * samplePerSecond:
-                data_y.pop()
-            makeFig()
+                data_y.remove(data_y[0])
+            if counter == 0:
+                makeFig()
+            counter += 1
+            counter %= POINTS_TOGETHER
 
 
 
 def start_button_action():
     global event
+    global isRunning
+    print(isRunning)
+    if isRunning:
+        return
+    event.clear()
+    isRunning = True
     thread = threading.Thread(target=mainThread)
     thread.do_run = True
     thread.start()
@@ -239,16 +259,28 @@ def start_button_action():
 def stop_button_action():
     # Stoppen des Auslese-Threads
     global event
+    global isRunning
     event.set()
+    isRunning = False
 
 
 def reset_button_action():
     # Zurücksetzen aller Variablen und updaten des Graphen
     global data_x
     global data_y
+    global fig
+    global event
+    global isRunning
+    event.set()
+    isRunning = False
     data_x.clear()
     data_y.clear()
-    makeFig()
+    subplot.clear()
+    subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
+    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+    subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+    fig.canvas.draw()
+    #makeFig()
 
 
 def trigger_button_action():
@@ -257,32 +289,60 @@ def trigger_button_action():
         checker = True
     else:
         checker = False
-    print(checker)
 
 
 # Erstellen des Graphen
+# def makeFig():
+#     global data_x
+#     global data_y
+#     # Festlegen der Größe des Plots
+#     fig = Figure(dpi=100)
+#     fig.set_figwidth(6.25)
+#     fig.set_figheight(4)
+#
+#     data_x_tmp = data_x[0:len(data_y)]
+#
+#     ax = fig.add_subplot(111)  # Erstellen des Graphen im Plot
+#     ax.plot(data_x_tmp, data_y, 'g')  # Hinzufügen des Graphen mit Werten der data-Arrays
+#     ax.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+#     ax.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
+#     ax.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+#
+#     canvas = FigureCanvasTkAgg(fig, master=fenster)
+#     canvas.draw()
+#
+#     canvas.get_tk_widget().place(x=175, y=30)
+
+
 def makeFig():
     global data_x
     global data_y
-    # Festlegen der Größe des Plots
-    fig = Figure(dpi=100)
-    fig.set_figwidth(6.25)
-    fig.set_figheight(4)
-
+    global subplot
+    global fig
     data_x_tmp = data_x[0:len(data_y)]
+    subplot.clear()
 
-    print(len(data_x_tmp), " = ", len(data_y))
+    subplot.plot(data_x_tmp, data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
+    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+    subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
 
-    ax = fig.add_subplot(111)  # Erstellen des Graphen im Plot
-    ax.plot(data_x_tmp, data_y, 'g')  # Hinzufügen des Graphen mit Werten der data-Arrays
-    ax.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
-    ax.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
-    ax.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+    fig.canvas.draw()
 
-    canvas = FigureCanvasTkAgg(fig, master=fenster)
-    canvas.draw()
 
-    canvas.get_tk_widget().place(x=175, y=30)
+# def makeFig2(data_x, data_y):
+#     global subplot
+#     global fig
+#
+#     if len(data_x) != len(data_y):
+#         return
+#
+#     subplot.plot(data_x, data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+#     subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
+#     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+#     subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+#
+#     fig.canvas.draw()
 
 
 # Fenster erstellen
@@ -373,5 +433,17 @@ trigger_button_label.place(x=120, y=270)
 exit_button.place(x=730, y=450)
 
 # Main
+# Festlegen der Größe des Plots
+global subplot
+global fig
+fig = Figure(dpi=100)
+fig.set_figwidth(6.25)
+fig.set_figheight(4)
+subplot = fig.add_subplot(111)  # Erstellen des Graphen im Plot
+canvas = FigureCanvasTkAgg(fig, master=fenster)
+canvas.draw()
+canvas.get_tk_widget().place(x=175, y=30)
+
+
 makeFig()
 fenster.mainloop()
