@@ -12,7 +12,7 @@ global scaler_x  # X-Achsen Skalierung
 scaler_x = 1
 
 global scaler_y  # Y-Achsen Skalierung
-scaler_y = 5
+scaler_y = 3
 
 global trigger  # Variable für Triggerschwelle
 trigger = 0.0
@@ -123,9 +123,6 @@ def readLine():
 #     # counter_y = data # Umrechnung Bit-Wert in Volt
 #     data_rx_y.append(data)
 #
-#     # print("Counter y: ", counter_y)
-#     # print("Array x: ", data_rx_x)
-#     # print("Array y: ", data_rx_y)
 #
 #
 # def data_retrieve_action():
@@ -149,7 +146,6 @@ def readLine():
 #
 #             for x in range(int(samplePerSecond * (scaler_x * 2))):
 #                 data = readLine()
-#                 # print(round(data, 2), " - ", trigger, " - ", round(data_old, 2))
 #
 #                 if event.is_set():
 #                     event.clear()
@@ -167,9 +163,6 @@ def readLine():
 #                     makeFig()
 #
 #                 data_old = data
-#
-#             #print("Data: ", data2)
-#             #print("Trigger:", trigger)
 #         else:
 #             for x in range(int(samplePerSecond * (scaler_x * 2))):
 #                 data = readLine()
@@ -212,7 +205,14 @@ def mainThread():
         # Trigger
         if checker:
             if is_triggered:
-                print(end="")
+                data_y.append(data)
+                if counter == 0:
+                    makeFig()
+                counter += 1
+                counter %= POINTS_TOGETHER
+                if len(data_x) == len(data_y):
+                    makeFig()
+                    return
             else:
                 if data_old is None:
                     data_old = data
@@ -246,7 +246,6 @@ def mainThread():
 def start_button_action():
     global event
     global isRunning
-    print(isRunning)
     if isRunning:
         return
     event.clear()
