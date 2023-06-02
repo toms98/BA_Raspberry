@@ -6,7 +6,6 @@ from matplotlib.backend_bases import key_press_handler
 import numpy as np
 from drawnow import *
 import threading
-from time import sleep
 
 # Globale Variable
 global scaler_x  # X-Achsen Skalierung
@@ -18,26 +17,27 @@ scaler_y = 5
 global trigger  # Variable für Triggerschwelle
 trigger = 0.0
 
-global data  # Variable in die ausgelesene Daten geschrieben werden
-data = 0
-
 global event  # Event für Threading Prozess
 event = threading.Event()
 
-global data_rx_x  # Array für Daten auf der x-Achse
-data_rx_x = []
+# global data_rx_x  # Array für Daten auf der x-Achse
+# data_rx_x = []
+#
+# global data_rx_y  # Array für Daten auf der y-Achse
+# data_rx_y = []
+#
+# global counter
+# counter = -scaler_x
 
-global data_rx_y  # Array für Daten auf der y-Achse
-data_rx_y = []
-
-global counter
-counter = -scaler_x
-
-global time
-time = 860  # Samples per Second des Microcontrollers
+global samplePerSecond
+samplePerSecond = 860  # Samples per Second des Microcontrollers
 
 global checker
 checker = False
+global data_x
+data_x = []
+global data_y
+data_y = []
 
 
 # Button-Actions
@@ -47,11 +47,14 @@ def auto_trigger_action():  # todo
 
 def time_update_action():
     global scaler_x
+    global data_x
     scaler_x = float(time_spinbox.get())
     stop_button_action()
     reset_button_action()
+    data_x.clear()
+    for i in range(round(-scaler_x * 2 * samplePerSecond), round(scaler_x * 2 * samplePerSecond)):
+        data_x.append(i / samplePerSecond)
     start_button_action()
-    makeFig()
 
 
 def volt_update_action():
@@ -60,7 +63,6 @@ def volt_update_action():
     stop_button_action()
     reset_button_action()
     start_button_action()
-    makeFig()
 
 
 def trigger_update_action():
@@ -69,7 +71,6 @@ def trigger_update_action():
     stop_button_action()
     reset_button_action()
     start_button_action()
-    makeFig()
 
 
 def windowClose():
@@ -78,29 +79,27 @@ def windowClose():
     fenster.destroy()
 
 
+global textDaten
+textDaten = None
+global counterDaten
+counterDaten = 0
 def readLine():
+    global textDaten
+    global counterDaten
     name = "./rng2.txt"
 
-    # später hier Datenstream des ADC auslesen und übergeben
-    global data
-    datei = open(name, 'r')
-    data = (float(datei.readline().strip()) / 8000) - 4.096  # Speichern der eingelesenen Zeile auf globale data-Variable
-    datei.close()
+    if textDaten is None:
+        datei = open(name, 'r')
+        textDaten = []
+        for l in datei.readlines():
+            textDaten.append((float(l.strip()) / 8000) - 4.096)
 
-    # rotierender Austausch der Zeilen im Dokument mit Beispielwerten
-    with open(name, 'r') as fr:
-        lines = fr.readlines()
-        zeile = lines[0]
-        ptr = 0
+    data = textDaten[counterDaten]
+    counterDaten += 1
+    if counterDaten == len(textDaten):
+        counterDaten = 0
+    return data
 
-        with open(name, 'w+') as fw:
-            for line in lines:
-                if ptr != 0:
-                    fw.write(line)
-                ptr += 1
-    f = open(name, 'a')
-    f.write(zeile)
-    f.close()
 
 # global data_rx_x
 # data_rx_x = []
@@ -231,9 +230,8 @@ def mainThread():
 
 
 def start_button_action():
-    global thread
     global event
-    thread = threading.Thread(target=data_retrieve_action, args=(event,))
+    thread = threading.Thread(target=mainThread)
     thread.do_run = True
     thread.start()
 
@@ -246,12 +244,10 @@ def stop_button_action():
 
 def reset_button_action():
     # Zurücksetzen aller Variablen und updaten des Graphen
-    global data_rx_x
-    global data_rx_y
-    global counter
-    data_rx_x = []
-    data_rx_y = []
-    counter = -scaler_x
+    global data_x
+    global data_y
+    data_x.clear()
+    data_y.clear()
     makeFig()
 
 
@@ -266,28 +262,25 @@ def trigger_button_action():
 
 # Erstellen des Graphen
 def makeFig():
-    global counter
-    global data_rx_x
-    global data_rx_y
-
+    global data_x
+    global data_y
     # Festlegen der Größe des Plots
     fig = Figure(dpi=100)
     fig.set_figwidth(6.25)
     fig.set_figheight(4)
 
+    data_x_tmp = data_x[0:len(data_y)]
+
+    print(len(data_x_tmp), " = ", len(data_y))
+
     ax = fig.add_subplot(111)  # Erstellen des Graphen im Plot
-    ax.plot(data_rx_x, data_rx_y, 'g')  # Hinzufügen des Graphen mit Werten der data-Arrays
+    ax.plot(data_x_tmp, data_y, 'g')  # Hinzufügen des Graphen mit Werten der data-Arrays
     ax.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
-    ax.set_xlim(-scaler_x, scaler_x)  # Festlegen der Randwerte der x-Achse
-    ax.set_ylim(-scaler_y, scaler_y)  # Festlegen der Randwerte der y-Achse
+    ax.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
+    ax.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
 
     canvas = FigureCanvasTkAgg(fig, master=fenster)
     canvas.draw()
-
-    if counter >= scaler_x:
-        data_rx_x = []
-        data_rx_y = []
-        counter = -scaler_x
 
     canvas.get_tk_widget().place(x=175, y=30)
 
@@ -315,7 +308,7 @@ cur_vol_label = Label(fenster, text="0", bg="#FFF", fg="#000", font="Oswald, 24"
 
 trigger_button_label = Label(fenster, text="Trigger", bg="#FFF", fg="#000", font="Oswald, 8")
 
-text_label = Label(fenster, text=data, bg="#FFF", fg="#000", font="Oswald, 18")
+#text_label = Label(fenster, text=readLine(), bg="#FFF", fg="#000", font="Oswald, 18")
 
 # Buttons
 auto_trigger_button = Button(fenster, text="AUTO-Trigger", command=auto_trigger_action, bg="#FFF", fg="#000",
