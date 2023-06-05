@@ -73,9 +73,8 @@ def volt_update_action():
 def trigger_update_action():
     global trigger
     trigger = float(trigger_spinbox.get())
-    # stop_button_action()
-    # reset_button_action()
-    # start_button_action()
+    if not isRunning:
+        makeFig()
 
 
 def windowClose():
