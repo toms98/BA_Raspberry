@@ -6,6 +6,7 @@ from matplotlib.backend_bases import key_press_handler
 import numpy as np
 from drawnow import *
 import threading
+import time
 
 # Globale Variable
 global scaler_x  # X-Achsen Skalierung
@@ -40,6 +41,7 @@ global data_y
 data_y = []
 global isRunning
 isRunning = False
+global thread
 
 # Button-Actions
 def auto_trigger_action():  # todo
@@ -49,29 +51,31 @@ def auto_trigger_action():  # todo
 def time_update_action():
     global scaler_x
     global data_x
+    global data_y
+    global isRunning
     scaler_x = float(time_spinbox.get())
-    stop_button_action()
-    reset_button_action()
     data_x.clear()
     for i in range(round(-scaler_x * 2 * samplePerSecond), round(scaler_x * 2 * samplePerSecond)):
         data_x.append(i / samplePerSecond)
-    start_button_action()
+    data_y = data_y[-len(data_x):]
+    if not isRunning:
+        makeFig()
 
 
 def volt_update_action():
     global scaler_y
+    global isRunning
     scaler_y = float(volt_spinbox.get())
-    stop_button_action()
-    reset_button_action()
-    start_button_action()
+    if not isRunning:
+        makeFig()
 
 
 def trigger_update_action():
     global trigger
     trigger = float(trigger_spinbox.get())
-    stop_button_action()
-    reset_button_action()
-    start_button_action()
+    # stop_button_action()
+    # reset_button_action()
+    # start_button_action()
 
 
 def windowClose():
@@ -102,87 +106,12 @@ def readLine():
     return data
 
 
-# global data_rx_x
-# data_rx_x = []
-# global data_rx_y
-# data_rx_y = []
-# global counter
-# counter = 0
-# def add_data_action(data):
-#     global data_rx_x
-#     global data_rx_y
-#     global counter
-#     global samplePerSecond
-#     global scaler_x
-#
-#     # Einordnen der Zeitwerte in das Array - Schrittweite = time = 1/SPS
-#     data_rx_x.append(float(counter))
-#     counter = counter + (1 / samplePerSecond)
-#
-#     # Einordnen der Datenwerte in das Array
-#     # counter_y = data # Umrechnung Bit-Wert in Volt
-#     data_rx_y.append(data)
-#
-#
-#
-# def data_retrieve_action():
-#     # aktualisieren des Labels bei Knopfdruck
-#     global trigger
-#     global checker
-#     global event
-#     data_old = 0.0
-#     is_triggered = False
-#     doBreak = False
-#
-#     while (True):
-#         if event.is_set():
-#             event.clear()
-#             break
-#
-#         has_data_old = False
-#
-#         if checker == True:
-#
-#
-#             for x in range(int(samplePerSecond * (scaler_x * 2))):
-#                 data = readLine()
-#
-#                 if event.is_set():
-#                     event.clear()
-#                     doBreak = True
-#                     break
-#
-#                 if not has_data_old:
-#                     data_old = data
-#                     has_data_old = True
-#                     continue
-#                 if (data >= trigger >= data_old) or (data <= trigger <= data_old):
-#                     is_triggered = True
-#                 if is_triggered == True:
-#                     add_data_action(data)
-#                     makeFig()
-#
-#                 data_old = data
-#         else:
-#             for x in range(int(samplePerSecond * (scaler_x * 2))):
-#                 data = readLine()
-#                 add_data_action(data)
-#
-#                 if event.is_set():
-#                     event.clear()
-#                     doBreak = True
-#                     break
-#
-#             makeFig()
-#         if doBreak:
-#             break
-
-
 def mainThread():
     # aktualisieren des Labels bei Knopfdruck
     global trigger
     global checker
     global scaler_x
+    global isRunning
     data_old = None
     is_triggered = False
 
@@ -192,8 +121,7 @@ def mainThread():
 
     POINTS_TOGETHER = 100
 
-    for i in range(round(-scaler_x * 2 * samplePerSecond), round(scaler_x * 2 * samplePerSecond)):
-        data_x.append(i / samplePerSecond)
+    time_update_action()
 
     counter = 0
 
@@ -212,7 +140,7 @@ def mainThread():
                 counter %= POINTS_TOGETHER
                 if len(data_x) == len(data_y):
                     makeFig()
-                    return
+                    break
             else:
                 if data_old is None:
                     data_old = data
@@ -234,20 +162,24 @@ def mainThread():
         # nicht Trigger
         else:
             data_y.append(data)
-            if len(data_y) >= 4 * scaler_x * samplePerSecond:
+            if len(data_y) > len(data_x):
                 data_y.remove(data_y[0])
             if counter == 0:
                 makeFig()
             counter += 1
             counter %= POINTS_TOGETHER
-
+    isRunning = False
 
 
 def start_button_action():
     global event
     global isRunning
+    global thread
+    global checker
     if isRunning:
         return
+    if checker:
+        reset_button_action()
     event.clear()
     isRunning = True
     thread = threading.Thread(target=mainThread)
@@ -259,6 +191,7 @@ def stop_button_action():
     # Stoppen des Auslese-Threads
     global event
     global isRunning
+    global thread
     event.set()
     isRunning = False
 
@@ -279,7 +212,6 @@ def reset_button_action():
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
     subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
     fig.canvas.draw()
-    #makeFig()
 
 
 def trigger_button_action():
@@ -288,6 +220,8 @@ def trigger_button_action():
         checker = True
     else:
         checker = False
+    stop_button_action()
+    reset_button_action()
 
 
 # Erstellen des Graphen
@@ -318,10 +252,15 @@ def makeFig():
     global data_y
     global subplot
     global fig
+    global event
+
+    data_y_tmp = data_y
+    if data_y > data_x:
+        data_y_tmp = data_y[:len(data_x)]
     data_x_tmp = data_x[0:len(data_y)]
     subplot.clear()
 
-    subplot.plot(data_x_tmp, data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.plot(data_x_tmp, data_y_tmp, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
     subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
     subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
@@ -446,3 +385,8 @@ canvas.get_tk_widget().place(x=175, y=30)
 
 makeFig()
 fenster.mainloop()
+
+
+#todo Trigger als Schiebebalken rechts/links neben fenster
+#todo Offset für Voltage
+#todo toggle buttons für welche flanke triggern
