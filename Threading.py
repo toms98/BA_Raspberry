@@ -8,6 +8,24 @@ from drawnow import *
 import threading
 import time
 
+import Adafruit_ADS1x15
+import RPi.GPIO2 #as GPIO
+
+adc = Adafruit_ADS1x15.ADS1115()
+
+CHNL = 0
+GAIN = 1
+DATA = 860
+pwmpin = 32
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(pwmpin, GPIO.OUT)
+pi_pwm = GPIO.PWM(pwmpin, 1)
+pi_pwm.start(0)
+
+adc.start_adc(channel=CHNL, gain=GAIN, data_rate=DATA)
+
 # Globale Variable
 global scaler_x  # X-Achsen Skalierung
 scaler_x = 1
@@ -90,7 +108,7 @@ counterDaten = 0
 def readLine():
     global textDaten
     global counterDaten
-    name = "./rng3.txt"
+    name = "./rng.txt"
 
     if textDaten is None:
         datei = open(name, 'r')
@@ -104,6 +122,23 @@ def readLine():
         counterDaten = 0
     return data
 
+def readLine2():
+    global textDaten
+    global counterDaten
+
+    if textDaten is None:
+        textDaten = []
+        for x in range (100):
+            pi_pwm.ChangeDutyCycle(x)
+            textDaten.append(adc.get_last_result)
+
+    data = textDaten[counterDaten]
+    counterDaten += 1
+
+    if counterDaten == len(textDaten):
+        counterDaten = 0
+
+    return data
 
 def mainThread():
     # aktualisieren des Labels bei Knopfdruck
@@ -128,7 +163,7 @@ def mainThread():
         if event.is_set():
             event.clear()
             break
-        data = readLine()
+        data = readLine2()
         # Trigger
         if checker:
             if is_triggered:
@@ -389,3 +424,5 @@ fenster.mainloop()
 #todo Trigger als Schiebebalken rechts/links neben fenster
 #todo Offset für Voltage
 #todo toggle buttons für welche flanke triggern
+
+#todo Platine für optische Schönheit
