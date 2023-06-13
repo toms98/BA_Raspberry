@@ -369,3 +369,10 @@ fenster.mainloop()
 # anzeige für cursor x/y + dif zwischen cursor
 
 # todo Platine für optische Schönheit
+#13.7
+# todo Spannungsversorgung für ADC ändern
+# todo Trigger aktiv und Signal liegt an. Start drücken Signal vor Trigger nicht aufgezeichnet
+# todo Achsenskallierung y-Achse fixen
+# todo https://www.best-microcontroller-projects.com/ads1115.html
+# todo https://www.mikrocontroller.net/topic/439100
+# todo Überlegung Offset auf Eingangsspannung legen, damit keine neg. Versorgung notwendig wird
