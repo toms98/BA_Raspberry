@@ -376,3 +376,6 @@ fenster.mainloop()
 # todo https://www.best-microcontroller-projects.com/ads1115.html
 # todo https://www.mikrocontroller.net/topic/439100
 # todo Überlegung Offset auf Eingangsspannung legen, damit keine neg. Versorgung notwendig wird
+
+# todo falstad.com/circuit Simulation
+# todo easyeda.com/de Schaltplan + Layout
