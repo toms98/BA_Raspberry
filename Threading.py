@@ -414,6 +414,7 @@ canvas = FigureCanvasTkAgg(fig, master=fenster)
 canvas.draw()
 canvas.get_tk_widget().place(x=175, y=30)
 fig.canvas.mpl_connect('button_press_event', onClick)
+fig.canvas.mpl_connect('button_release_event', onClick)
 #fig.canvas.mpl_connect('key_press_event', onKey)
 
 makeFig()
