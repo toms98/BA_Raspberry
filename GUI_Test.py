@@ -11,8 +11,8 @@ scaler_x = 0.5
 global scaler_y  # Y-Achsen Skalierung
 scaler_y = 3
 
-global trigger  # Variable für Triggerschwelle
-trigger = 2.0
+global triggerValue  # Variable für Triggerschwelle
+triggerValue = 2.0
 
 global samplePerSecond
 samplePerSecond = 860  # Samples per Second des Microcontrollers
@@ -69,7 +69,7 @@ def makeFig():
     subplot.plot([-1.5 * scaler_x, -1.5 * scaler_x], [-2 * scaler_y, 2 * scaler_y], 'g', linewidth=0.2)
     subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
-    subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+    subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
 
     fig.canvas.draw_idle()
 

@@ -23,8 +23,8 @@ scaler_x = 0.5
 global scaler_y  # Y-Achsen Skalierung
 scaler_y = 3
 
-global trigger  # Variable für Triggerschwelle
-trigger = 0.0
+global triggerValue  # Variable für Triggerschwelle
+triggerValue = 0.0
 
 global event  # Event für Threading Prozess
 event = threading.Event()
@@ -83,7 +83,7 @@ def volt_update_action():
 
 
 def trigger_update_action():
-    global trigger
+    global triggerValue
     trigger = float(trigger_spinbox.get())
     if not isRunning:
         makeFig()
@@ -142,7 +142,7 @@ def readLine3():
 
 def mainThread():
     # aktualisieren des Labels bei Knopfdruck
-    global trigger
+    global triggerValue
     global checker
     global scaler_x
     global isRunning
@@ -261,7 +261,7 @@ def reset_button_action():
     subplot.clear()
     subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
-    subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+    subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
     fig.canvas.draw()
 
 
@@ -296,7 +296,7 @@ def makeFig():
     subplot.plot(data_x_tmp, data_y_tmp, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
     subplot.set_xlim(-scaler_x * 2, scaler_x * 2)  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
-    subplot.axhline(y=trigger, color='r')  # rote horizontale Linie für Triggerschwelle
+    subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
 
     fig.canvas.draw_idle()
 
@@ -341,7 +341,7 @@ time_str = StringVar(fenster)
 tri_str = StringVar(fenster)
 volt_str.set(str(scaler_y))
 time_str.set(str(scaler_x))
-tri_str.set(str(trigger))
+tri_str.set(str(triggerValue))
 
 volt_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=5, increment=1, font="Oswald, 18", fg="#000",
                        bg="#FFF", command=volt_update_action, textvariable=volt_str)

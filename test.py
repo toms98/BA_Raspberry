@@ -1,4 +1,7 @@
-x = range(100)
-y = [i * 2 for i in x]
-print(x)
-print(y)
+import time
+
+t = time.time()
+for i in range(1000):
+    print("test")
+print(time.time() - t)
+time.x_us()

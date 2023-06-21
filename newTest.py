@@ -14,8 +14,8 @@ scaler_x = 1
 global scaler_y
 scaler_y = 10
 
-global trigger
-trigger = 1.0
+global triggerValue
+triggerValue = 1.0
 
 global data
 data = 0
@@ -38,7 +38,7 @@ def volt_update_action():
     makeFig()
 
 def trigger_update_action():
-    global trigger
+    global triggerValue
     trigger = float(trigger_spinbox.get())
     makeFig()
 
@@ -98,7 +98,7 @@ def makeFig():
 
     ax = fig.add_subplot(111)
     ax.plot(data_x, data_y, 'g')
-    ax.axhline(y=trigger, color='r')
+    ax.axhline(y=triggerValue, color='r')
     ax.set_xlim(0, scaler_x)
     ax.set_ylim(0, scaler_y)
 
@@ -139,7 +139,7 @@ time_str = StringVar(fenster)
 tri_str = StringVar(fenster)
 volt_str.set(str(scaler_y))
 time_str.set(str(scaler_x))
-tri_str.set(str(trigger))
+tri_str.set(str(triggerValue))
 
 volt_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=volt_update_action, textvariable=volt_str)
 time_spinbox = Spinbox(fenster, background="white", width=4, from_=1, to=10, increment=1, font="Oswald, 18", fg="#000", bg="#FFF", command=time_update_action, textvariable=time_str)
