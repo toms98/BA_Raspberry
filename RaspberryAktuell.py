@@ -1,7 +1,6 @@
 import tkinter
 from tkinter import *
 
-import matplotlib
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg)
 from matplotlib.figure import Figure
 import threading
@@ -13,9 +12,8 @@ from tkinter import ttk
 
 TOUCH_SCREEN_PERCENTAGE = 50
 
-# global mode, design, scaler_x, scaler_y, trigger, event, samplePerSecond, checker, data_x, data_y, isRunning, thread
+# global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
 mode = "MAC"  # Betriebsmodus 0 = Mac, 1 = RPi
-design = "NEU"  # GUI-Auswahl 0 = alt, 1 = neu
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
 triggerValue = 2.0  # Variable für Triggerschwelle
@@ -24,14 +22,26 @@ curserTwo = None
 showFromTo = [-2 * scaler_x, 2 * scaler_x]
 event = threading.Event()  # Event für Threading Prozess
 samplePerSecond = 860  # Samples per Second des Microcontrollers
-data_x = [-1, 1]  # Datenarray für X-Werte
-data_y = [-6, 6]  # Datenarray für Y-Werte
+data_x = []  # Datenarray für X-Werte
+data_y = []  # Datenarray für Y-Werte
+data_x_eval = []  # Datenarray für X-Werte
+data_y_eval = []  # Datenarray für Y-Werte
 isRunning = False  # Boolean für Aufzeichnung (in)aktiv
 thread = threading.Thread  # todo kommentar
 fenster = Tk()  # Fenster das bei Start geöffnet wird
-checker = BooleanVar()  # Boolean für Trigger (in)aktiv
 triggerSelect = tkinter.StringVar()
 vorteilerSelect = tkinter.StringVar()
+
+GAIN_TO_MAX = {
+    2/3: 6.144,
+    1: 4.096,
+    2: 2.048,
+    4: 1.024,
+    8: 0.512,
+    16: 0.256
+}
+
+GAIN = 2/3
 
 if mode == "RPI":
     import Adafruit_ADS1x15
@@ -41,7 +51,6 @@ if mode == "RPI":
     adc = Adafruit_ADS1x15.ADS1115()
 
     CHANNEL = 0
-    GAIN = 1
 
     GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BOARD)
@@ -49,9 +58,13 @@ if mode == "RPI":
     adc.start_adc(channel=CHANNEL, gain=GAIN, data_rate=samplePerSecond)
 
 
-# Button-Actions
-def auto_trigger_action():  # todo
-    fenster.quit()
+def get_offset():
+    if mode == "MAC":
+        return 0
+        # return 53333
+        # return 26666
+    else:
+        return adc.read_adc(2, gain=GAIN)
 
 
 def time_update_action():
@@ -80,99 +93,101 @@ def window_close():
     fenster.destroy()
 
 
-# global timeRef
-timeRef = -1.0
+textDaten = []
+datei = open("./rng2.txt", 'r')
+for l in datei.readlines():
+    textDaten.append(float(l.strip()))
+counterDaten = 0
 
 
 def readline():
     global scaler_x
-    global timeRef
+    global counterDaten
     y = 0
     if mode == "MAC":
-        y = 0
+        for i in range(10000):
+            print(end="")
+        y = textDaten[counterDaten]
+        counterDaten += 1
+        if counterDaten == len(textDaten):
+            counterDaten = 0
     if mode == "RPI":
-        y = float(adc.get_last_result()) / 8000
-    t = time.time()
-    if timeRef < 0:
-        timeRef = t
-    x = t - timeRef - 2 * scaler_x
-    return x, y, t
+        y = adc.get_last_result()
+    x = time.time()
+    return x, y
 
 
 def main_thread():
-    # aktualisieren des Labels bei Knopfdruck
-    global triggerValue
-    global checker
-    global scaler_x
     global isRunning
-    global timeRef
     global data_x
     global data_y
 
     data_old = None
     is_triggered = False
-    # points_together = 100
 
     time_update_action()
 
+    offset = get_offset()
+
     counter = 0
+    prescaler = 1
+    if triggerSelect.get() == "1/4":
+        prescaler = 0.25
+    elif triggerSelect.get() == "1/2":
+        prescaler = 0.5
+
+    trigger_absolute = triggerValue * prescaler * 65535 / GAIN_TO_MAX[GAIN] + offset
+    print("trigger=", triggerValue, "  absolute=", trigger_absolute)
+    do_trigger = 0
+    if triggerSelect.get() == "Falling":
+        do_trigger = 1
+    elif triggerSelect.get() == "Rising":
+        do_trigger = 2
+    elif triggerSelect.get() == "Both":
+        do_trigger = 3
+
+    x, y = readline()
+    data_x.append(x)
+    data_y.append(y)
+
+    display_full_time = x + 4 * scaler_x
+    triggered_at_time = None
 
     while True:
         if event.is_set():
             event.clear()
             break
 
-        x, y, t = readline()
+        x, y = readline()
         data_x.append(x)
         data_y.append(y)
         # Trigger
-        if checker:
+        if do_trigger != 0:
             if is_triggered:
-                if x > 2 * scaler_x:
-                    while True:
-                        if data_x[0] < -scaler_x * 2:
-                            data_x.remove(data_x[0])
-                            data_y.remove(data_y[0])
-                            continue
-                        break
-                    make_fig()
-                    data_x = []
-                    data_y = []
-                    timeRef = -1.
+                if x > display_full_time:
+                    make_fig(triggered_at_time=triggered_at_time)
                     break
             else:
                 if data_old is None:
                     data_old = y
-                elif (y >= triggerValue >= data_old) or (y <= triggerValue <= data_old):
+                elif ((y >= trigger_absolute >= data_old) and (do_trigger == 1 or do_trigger == 3))\
+                        or ((y <= trigger_absolute <= data_old) and (do_trigger == 2 or do_trigger == 3)):
                     data_old = None
+                    triggered_at_time = x
                     is_triggered = True
-                    shift = scaler_x * 1.5 + x
-                    timeRef += shift
-                    data_x = [i - shift for i in data_x]
                 else:
                     data_old = y
-                if x > - scaler_x * 1.5:
-                    counter += 1
-                    if counter * scaler_x * 0.5 >= 0.5:
-                        make_fig()
-                        counter = 0
-                    timeRef = t
-                    # print(data_x)
-                    # print(data_y)
-                    print(len(data_x))
-                    length = round(scaler_x * samplePerSecond)
-                    data_x = data_x[-length:]
-                    shift = - scaler_x * 2 - x
-                    data_x = [i + shift for i in data_x]
-                    data_y = data_y[-length:]
 
         # nicht Trigger
         else:
-            if x > 2 * scaler_x:
+            if x > display_full_time:
                 make_fig()
                 data_x = []
                 data_y = []
-                timeRef = -1.0
+                x, y = readline()
+                data_x.append(x)
+                data_y.append(y)
+                display_full_time = x + 4 * scaler_x
 
     isRunning = False
 
@@ -180,12 +195,10 @@ def main_thread():
 def start_button_action():
     global event
     global isRunning
-    global thread  # todo Lösung warum thread unterstrichen?
-    global checker
+    global thread
     if isRunning:
         return
-    if checker:
-        reset_button_action()
+    reset_button_action()
     event.clear()
     isRunning = True
     thread = threading.Thread(target=main_thread)
@@ -211,7 +224,8 @@ def reset_button_action():
     stop_button_action()
     data_x.clear()
     data_y.clear()
-    make_fig()
+    # make_fig()
+    make_fig_clear()
 
 
 def reset_zoom_callback():
@@ -231,18 +245,73 @@ def reset_cursor_callback():
 tlast = time.time()
 
 
-def make_fig():
+# noinspection PyUnresolvedReferences
+def make_fig(triggered_at_time=None):
     global subplot
     global tlast
-    print("c1=", curserOne, "  c2=", curserTwo)
+    global data_x
+    global data_y
+    global data_x_eval
+    global data_y_eval
 
-    # print("zeit: ", time.time() - tlast)
-    # tlast = time.time()
-    # print("punkte: ", len(data_x), " freq: ", len(data_x) / (4 * scaler_x))
+    print("zeit: ", time.time() - tlast)
+    tlast = time.time()
+    print("punkte: ", len(data_x), " freq: ", len(data_x) / (4 * scaler_x))
+
+    if isRunning:
+        if triggered_at_time is None:
+            shift = data_x[0] + 2 * scaler_x
+            data_x_eval = [i - shift for i in data_x]
+        else:
+            shift = triggered_at_time - data_x[0] - 0.5 * scaler_x
+            data_x_eval = [i - shift for i in data_x]
+
+        offset = get_offset()
+        prescaler = 1
+        if vorteilerSelect.get() == "1/4":
+            prescaler = 0.25
+        elif vorteilerSelect.get() == "1/2":
+            prescaler = 0.5
+        print("prescaler: ", prescaler)
+        mult = GAIN_TO_MAX[GAIN] / (65535 * prescaler)
+        data_y_eval = [(i - offset) * mult for i in data_y]
 
     fig.delaxes(subplot)
     subplot = fig.add_subplot(111)
-    subplot.plot(data_x, data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.plot(data_x_eval, data_y_eval, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
+    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+    if triggerSelect.get() != 'None':
+        subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
+    if curserOne is not None:
+        subplot.axvline(x=curserOne, color='b')
+    if curserTwo is not None:
+        subplot.axvline(x=curserTwo, color='b')
+    if curserOne is not None and curserTwo is not None:
+        timedif2_label.config(text=str(round(curserTwo - curserOne, 2)))
+        voltage1 = 0
+        voltage2 = 0
+        for i in range(len(data_x_eval) - 1):
+            if data_x_eval[i] < curserOne < data_x_eval[i + 1]:
+                voltage1 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
+        for i in range(len(data_x_eval) - 1):
+            if data_x_eval[i] < curserTwo < data_x_eval[i + 1]:
+                voltage2 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
+        voltdif2_label.config(text=str(round((voltage2 - voltage1) * 1000, 2)))
+        print("cursor1: x=", curserOne, " y=", voltage1)
+        print("cursor2: x=", curserTwo, " y=", voltage2)
+    else:
+        timedif2_label.config(text="0.0")
+    fig.canvas.draw_idle()
+
+
+# noinspection PyUnresolvedReferences
+def make_fig_clear():
+    global subplot
+
+    fig.delaxes(subplot)
+    subplot = fig.add_subplot(111)
+    # subplot.plot([], data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
     subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
     if triggerSelect.get() != 'None':
@@ -261,11 +330,8 @@ def make_fig():
 def change_trigger_style(x, y):
     make_fig()
 
-def change_vorteiler_style(x, y):
-    make_fig()
-    # todo neu, braucht Parameter?
 
-
+# noinspection PyGlobalUndefined
 def on_click(e):
     global eOld
     # print("x:", e.x, " y:", e.y, " ", e.button)
@@ -337,7 +403,6 @@ def on_release(e):
         return
 
 
-# if design == "NEU":
 # Fenster erstellen
 # fenster = Tk()
 fenster.title("Oszilloskop")  # Name des Fensters
@@ -365,7 +430,7 @@ timedif3_label = Label(fenster, text="s", bg="white", fg="black", font="Oswald, 
 
 voltdif1_label = Label(fenster, text="Volt Diff.:", bg="white", fg="black", font="Oswald, 12")
 voltdif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12")
-voltdif3_label = Label(fenster, text="mV:", bg="white", fg="black", font="Oswald, 12")
+voltdif3_label = Label(fenster, text="mV", bg="white", fg="black", font="Oswald, 12")
 
 # Buttons
 start_button = Button(fenster, text="Start", command=start_button_action, bg="white", fg="black", width="4")
@@ -380,15 +445,10 @@ time_str = StringVar(fenster)
 volt_str.set(str(scaler_y))
 time_str.set(str(scaler_x))
 
-volt_spinbox = Spinbox(fenster, width=4, from_=1, to=5, increment=1, font="Oswald, 18", fg="black",
+volt_spinbox = Spinbox(fenster, width=4, from_=1, to=20, increment=1, font="Oswald, 18", fg="black",
                        bg="white", command=volt_update_action, textvariable=volt_str)
 time_spinbox = Spinbox(fenster, width=4, from_=0.1, to=10, increment=0.1, font="Oswald, 18", fg="black",
                        bg="white", command=time_update_action, textvariable=time_str)
-
-# Scrollbar
-# trigger_scrollbar = Scrollbar(fenster, command=trigger_scroll_callback, width=25, orient=VERTICAL)
-# cursor1_scrollbar = Scrollbar(fenster, command=curser_one_callback, width=25, orient=HORIZONTAL)
-# cursor2_scrollbar = Scrollbar(fenster, command=curser_two_callback, width=25, orient=HORIZONTAL)
 
 # Combobox
 trigger_style = ttk.Combobox(fenster, width=6, textvariable=triggerSelect, font="Oswald, 18",
@@ -399,8 +459,8 @@ trigger_style.place(x=5, y=170)
 trigger_style.current(0)
 
 vorteiler = ttk.Combobox(fenster, width=6, textvariable=vorteilerSelect, font="Oswald, 18",
-                            values=('None', '1/4', '1/2'), state="readonly",
-                            xscrollcommand=change_vorteiler_style) # todo scrollcommand benötigt?
+                            values=('None', '1/2', '1/4'), state="readonly")
+vorteiler.current(0)
 
 vorteiler.place(x=500, y=380)
 
@@ -440,10 +500,6 @@ reset_values_button.place(x=135, y=380)
 reset_zoom_button.place(x=250, y=380)
 reset_cursor_button.place(x=365, y=380)
 
-# trigger_scrollbar.place(x=770, y=0, height=325)
-# cursor1_scrollbar.place(x=170, y=325, width=600)
-# cursor2_scrollbar.place(x=170, y=350, width=600)
-
 # Main
 # Festlegen der Größe des Plots
 fig = Figure(dpi=100, facecolor='blue', figsize=(6.3, 3.8), tight_layout=True)
@@ -457,12 +513,6 @@ fig.canvas.mpl_connect('button_release_event', on_release)
 make_fig()
 fenster.mainloop()
 
-# Trigger als Schiebebalken rechts/links neben fenster, Scrollrad weg
-# Offset für Voltage
-# toggle buttons für welche flanke triggern
-# auto-trigger raus
-# todo cursor und zoom mit finger
-# todo reset für cursor, zoom
 # anzeige für cursor x/y + dif zwischen cursor
 # Platine
 
