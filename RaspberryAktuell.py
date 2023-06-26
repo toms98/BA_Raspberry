@@ -31,6 +31,7 @@ thread = threading.Thread  # todo kommentar
 fenster = Tk()  # Fenster das bei Start geöffnet wird
 checker = BooleanVar()  # Boolean für Trigger (in)aktiv
 triggerSelect = tkinter.StringVar()
+vorteilerSelect = tkinter.StringVar()
 
 if mode == "RPI":
     import Adafruit_ADS1x15
@@ -260,6 +261,10 @@ def make_fig():
 def change_trigger_style(x, y):
     make_fig()
 
+def change_vorteiler_style(x, y):
+    make_fig()
+    # todo neu, braucht Parameter?
+
 
 def on_click(e):
     global eOld
@@ -389,9 +394,15 @@ time_spinbox = Spinbox(fenster, width=4, from_=0.1, to=10, increment=0.1, font="
 trigger_style = ttk.Combobox(fenster, width=6, textvariable=triggerSelect, font="Oswald, 18",
                              values=('None', 'Rising', 'Falling', 'Both'), state="readonly",
                              xscrollcommand=change_trigger_style)
-# trigger_style['values'] = ('None', 'Rising', 'Falling', 'Both')
+
 trigger_style.place(x=5, y=170)
 trigger_style.current(0)
+
+vorteiler = ttk.Combobox(fenster, width=6, textvariable=vorteilerSelect, font="Oswald, 18",
+                            values=('None', '1/4', '1/2'), state="readonly",
+                            xscrollcommand=change_vorteiler_style) # todo scrollcommand benötigt?
+
+vorteiler.place(x=500, y=380)
 
 # Window
 fenster.geometry("800x410")
@@ -435,7 +446,7 @@ reset_cursor_button.place(x=365, y=380)
 
 # Main
 # Festlegen der Größe des Plots
-fig = Figure(dpi=100, facecolor='blue', figsize=(6, 3.25), tight_layout=True)
+fig = Figure(dpi=100, facecolor='blue', figsize=(6.3, 3.8), tight_layout=True)
 subplot = fig.add_subplot(111)  # Erstellen des Graphen im Plot
 canvas = FigureCanvasTkAgg(fig, master=fenster)
 canvas.draw()
@@ -468,3 +479,8 @@ fenster.mainloop()
 
 # 20.6
 # todo neues Design mit Funktionen belegen
+
+# 25.6
+# todo Readline nur Rohdaten speichern
+# todo Umrechnung bei Anzeige
+# todo Einsteller für Vorteiler
