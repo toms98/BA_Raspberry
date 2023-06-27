@@ -151,6 +151,7 @@ def main_thread():
     data_y.append(y)
 
     display_full_time = x + 4 * scaler_x
+    trigger_after_time = x + 0.5 * scaler_x
     triggered_at_time = None
 
     while True:
@@ -170,8 +171,9 @@ def main_thread():
             else:
                 if data_old is None:
                     data_old = y
-                elif ((y >= trigger_absolute >= data_old) and (do_trigger == 1 or do_trigger == 3))\
-                        or ((y <= trigger_absolute <= data_old) and (do_trigger == 2 or do_trigger == 3)):
+                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))\
+                        or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3)))\
+                        and (x > trigger_after_time):
                     data_old = None
                     triggered_at_time = x
                     is_triggered = True
@@ -263,7 +265,7 @@ def make_fig(triggered_at_time=None):
             shift = data_x[0] + 2 * scaler_x
             data_x_eval = [i - shift for i in data_x]
         else:
-            shift = triggered_at_time - data_x[0] - 0.5 * scaler_x
+            shift = triggered_at_time + 1.5 * scaler_x
             data_x_eval = [i - shift for i in data_x]
 
         offset = get_offset()
@@ -272,7 +274,6 @@ def make_fig(triggered_at_time=None):
             prescaler = 0.25
         elif vorteilerSelect.get() == "1/2":
             prescaler = 0.5
-        print("prescaler: ", prescaler)
         mult = GAIN_TO_MAX[GAIN] / (65535 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
 
