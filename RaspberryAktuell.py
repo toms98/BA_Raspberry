@@ -530,8 +530,3 @@ fenster.mainloop()
 
 # 20.6
 # todo neues Design mit Funktionen belegen
-
-# 25.6
-# todo Readline nur Rohdaten speichern
-# todo Umrechnung bei Anzeige
-# todo Einsteller für Vorteiler
