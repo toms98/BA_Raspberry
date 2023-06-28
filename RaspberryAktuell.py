@@ -93,11 +93,12 @@ def window_close():
     fenster.destroy()
 
 
-textDaten = []
-datei = open("./rng2.txt", 'r')
-for l in datei.readlines():
-    textDaten.append(float(l.strip()))
-counterDaten = 0
+if mode == "MAC":
+    textDaten = []
+    datei = open("./rng2.txt", 'r')
+    for l in datei.readlines():
+        textDaten.append(float(l.strip()))
+    counterDaten = 0
 
 
 def readline():
