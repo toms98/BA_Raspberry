@@ -7,9 +7,10 @@ import threading
 import time
 import gc
 from tkinter import ttk
+import scipy.fft
 
 # from matplotlib.backend_bases import key_press_handler
-# from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 
 TOUCH_SCREEN_PERCENTAGE = 50
 
@@ -89,7 +90,7 @@ def window_close():
 
 if mode == "MAC":
     textDaten = []
-    datei = open("./rng2.txt", 'r')
+    datei = open("./rng3.txt", 'r')
     for line in datei.readlines():
         textDaten.append(float(line.strip()) / 2)
     counterDaten = 0
@@ -99,7 +100,7 @@ def readline():
     global counterDaten
     y = 0
     if mode == "MAC":
-        for i in range(6000):
+        for i in range(1000):
             print(end="")
         y = textDaten[counterDaten]
         counterDaten += 1
@@ -269,6 +270,19 @@ def make_fig(triggered_at_time=None):
             prescaler = 0.5
         mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
+
+        N = len(data_y_eval)
+        T = (4 * scaler_x) / N
+        # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
+        ft = scipy.fft.fft(data_y)
+        arr = [abs(ft[i]) for i in range(1, N//2)]
+        m = max(arr)
+        f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
+        frequency2_label.config(text=str(round(f, 3)))
+        if f != 0:
+            period2_label.config(text=str(round(1 / f, 3)))
+        # plt.plot(x_f[1:100], arr[1:100])
+        # plt.show()
 
     draw_graph(data_x_eval, data_y_eval)
 
@@ -520,4 +534,4 @@ fenster.mainloop()
 # todo easyeda.com/de Schaltplan + Layout
 
 # 20.6
-# todo neues Design mit Funktionen belegen
+# todo Frequenzdiagram auf knopfdruck
