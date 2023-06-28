@@ -14,7 +14,7 @@ from tkinter import ttk
 TOUCH_SCREEN_PERCENTAGE = 50
 
 # global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
-mode = "RPI"  # Betriebsmodus 0 = Mac, 1 = RPi
+mode = "MAC"  # Betriebsmodus 0 = Mac, 1 = RPi
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
 triggerValue = 0.0  # Variable für Triggerschwelle
@@ -32,6 +32,7 @@ thread = threading.Thread  # todo kommentar
 fenster = Tk()  # Fenster das bei Start geöffnet wird
 triggerSelect = tkinter.StringVar()
 vorteilerSelect = tkinter.StringVar()
+OFFSET = 13333
 
 GAIN_TO_MAX = {
     2/3: 6.144,
@@ -61,16 +62,12 @@ if mode == "RPI":
     for i in range(10):
         OFFSET += adc.read_adc(channel=1, gain=GAIN)
     OFFSET /= 10
-    print("offset: ", OFFSET)
         
     adc.start_adc(channel=CHANNEL, gain=GAIN, data_rate=samplePerSecond)
 
 
 def time_update_action():
     global scaler_x
-    global data_x
-    global data_y
-    global isRunning
     global showFromTo
     scaler_x = float(time_spinbox.get())
     showFromTo = [-2 * scaler_x, 2 * scaler_x]
@@ -80,14 +77,12 @@ def time_update_action():
 
 def volt_update_action():
     global scaler_y
-    global isRunning
     scaler_y = float(volt_spinbox.get())
     if not isRunning:
         make_fig()
 
 
 def window_close():
-    global event
     event.set()
     fenster.destroy()
 
@@ -95,17 +90,16 @@ def window_close():
 if mode == "MAC":
     textDaten = []
     datei = open("./rng2.txt", 'r')
-    for l in datei.readlines():
-        textDaten.append(float(l.strip()))
+    for line in datei.readlines():
+        textDaten.append(float(line.strip()) / 2)
     counterDaten = 0
 
 
 def readline():
-    global scaler_x
     global counterDaten
     y = 0
     if mode == "MAC":
-        for i in range(10000):
+        for i in range(6000):
             print(end="")
         y = textDaten[counterDaten]
         counterDaten += 1
@@ -128,16 +122,13 @@ def main_thread():
 
     time_update_action()
 
-    offset = OFFSET
-    
-    counter = 0
     prescaler = 1
     if triggerSelect.get() == "1/4":
         prescaler = 0.25
     elif triggerSelect.get() == "1/2":
         prescaler = 0.5
 
-    trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + offset
+    trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + OFFSET
     print("trigger=", triggerValue, "  absolute=", trigger_absolute)
     do_trigger = 0
     if triggerSelect.get() == "Falling":
@@ -229,7 +220,6 @@ def reset_button_action():
     stop_button_action()
     data_x.clear()
     data_y.clear()
-    # make_fig()
     make_fig_clear()
 
 
@@ -280,28 +270,47 @@ def make_fig(triggered_at_time=None):
         mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
 
+    draw_graph(data_x_eval, data_y_eval)
+
+
+# noinspection PyUnresolvedReferences
+def make_fig_clear():
+    draw_graph([], [])
+
+
+def draw_graph(x, y):
+    global subplot
+
     fig.delaxes(subplot)
     subplot = fig.add_subplot(111)
-    subplot.plot(data_x_eval, data_y_eval, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.plot(x, y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
     subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+
+    voltage1 = 0
+    voltage2 = 0
+
     if triggerSelect.get() != 'None':
         subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
     if curserOne is not None:
-        subplot.axvline(x=curserOne, color='b')
-    if curserTwo is not None:
-        subplot.axvline(x=curserTwo, color='b')
-    if curserOne is not None and curserTwo is not None:
-        timedif2_label.config(text=str(round(curserTwo - curserOne, 2)))
-        voltage1 = 0
-        voltage2 = 0
         for i in range(len(data_x_eval) - 1):
             if data_x_eval[i] < curserOne < data_x_eval[i + 1]:
                 voltage1 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
+        subplot.axvline(x=curserOne, color='b')
+        subplot.text(curserOne + 0.01 * scaler_x, 1.85 * scaler_y, "1", color="b")
+        subplot.text(curserOne + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserOne, 2)) + "s", color="b")
+        subplot.text(curserOne + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage1, 2)) + "V", color="b")
+    if curserTwo is not None:
         for i in range(len(data_x_eval) - 1):
             if data_x_eval[i] < curserTwo < data_x_eval[i + 1]:
                 voltage2 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
-        voltdif2_label.config(text=str(round((voltage2 - voltage1) * 1000, 2)))
+        subplot.axvline(x=curserTwo, color='b')
+        subplot.text(curserTwo + 0.01 * scaler_x, 1.85 * scaler_y, "2", color="b")
+        subplot.text(curserTwo + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserTwo, 2)) + "s", color="b")
+        subplot.text(curserTwo + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage2, 2)) + "V", color="b")
+    if curserOne is not None and curserTwo is not None:
+        timedif2_label.config(text=str(round(abs(curserTwo - curserOne), 3)))
+        voltdif2_label.config(text=str(round(abs((voltage2 - voltage1) * 1000), 1)))
         print("cursor1: x=", curserOne, " y=", voltage1)
         print("cursor2: x=", curserTwo, " y=", voltage2)
     else:
@@ -309,43 +318,22 @@ def make_fig(triggered_at_time=None):
     fig.canvas.draw_idle()
 
 
-# noinspection PyUnresolvedReferences
-def make_fig_clear():
-    global subplot
-
-    fig.delaxes(subplot)
-    subplot = fig.add_subplot(111)
-    # subplot.plot([], data_y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
-    subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
-    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
-    if triggerSelect.get() != 'None':
-        subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
-    if curserOne is not None:
-        subplot.axvline(x=curserOne, color='b')
-    if curserTwo is not None:
-        subplot.axvline(x=curserTwo, color='b')
-    if curserOne is not None and curserTwo is not None:
-        timedif2_label.config(text=str(round(curserTwo - curserOne, 2)))
-    else:
-        timedif2_label.config(text="0.0")
-    fig.canvas.draw_idle()
-
-
 def change_trigger_style(x, y):
-    make_fig()
+    global data_x_eval
+    global data_y_eval
+    event.set()
+    data_x_eval = []
+    data_y_eval = []
+    draw_graph([], [])
 
 
 # noinspection PyGlobalUndefined
 def on_click(e):
     global eOld
-    # print("x:", e.x, " y:", e.y, " ", e.button)
-    # print("xDat:", e.xdata, " yDat:", e.ydata, " ", e.button)
     eOld = e
 
 
 def on_release(e):
-    # print("x:", e.x, " y:", e.y, " ", e.button)
-    # print("xDat:", e.xdata, " yDat:", e.ydata, " ", e.button)
     global curserOne
     global curserTwo
     global triggerValue
@@ -359,14 +347,14 @@ def on_release(e):
         make_fig()
         return
     if curserOne is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserOne - 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserOne + 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE):
+            curserOne - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserOne + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
         curserOne = e.xdata
         make_fig()
         return
     if curserOne is not None and e.xdata is None and eOld.xdata is not None and (
-            curserOne - 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserOne + 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE):
+            curserOne - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserOne + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
         curserOne = None
         make_fig()
         return
@@ -377,22 +365,22 @@ def on_release(e):
         make_fig()
         return
     if curserTwo is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserTwo - 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserTwo + 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE):
+            curserTwo - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserTwo + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
         curserTwo = e.xdata
         make_fig()
         return
     if curserTwo is not None and e.xdata is None and eOld.xdata is not None and (
-            curserTwo - 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserTwo + 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE):
+            curserTwo - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserTwo + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
         curserTwo = None
         make_fig()
         return
 
     # move trigger
     if triggerSelect.get() != 'None' and e.ydata is not None and eOld.ydata is not None and (
-            triggerValue - 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE) < eOld.ydata < (
-            triggerValue + 2 * showFromTo[1] / TOUCH_SCREEN_PERCENTAGE):
+            triggerValue - 8 * scaler_y / TOUCH_SCREEN_PERCENTAGE) < eOld.ydata < (
+            triggerValue + 8 * scaler_y / TOUCH_SCREEN_PERCENTAGE):
         triggerValue = e.ydata
         make_fig()
         return
@@ -420,20 +408,20 @@ triggerstyle_label = Label(fenster, text="Triggerstyle:", bg="#FFF", fg="#000", 
 trigger_value_label = Label(fenster, text="0.0", bg="blue", fg="#000", font="Oswald, 18")
 trigger_volt_label = Label(fenster, text="V", bg="red", fg="#000", font="Oswald, 18", width=2)
 
-frequency1_label = Label(fenster, text="Frequency:", bg="#FFF", fg="#000", font="Oswald, 12")
-frequency2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12")
+frequency1_label = Label(fenster, text="f:", bg="#FFF", fg="#000", font="Oswald, 12")
+frequency2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
 frequency3_label = Label(fenster, text="f/Hz", bg="#FFF", fg="#000", font="Oswald, 12")
 
-period1_label = Label(fenster, text="Period:", bg="white", fg="black", font="Oswald, 12")
-period2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12")
+period1_label = Label(fenster, text="T:", bg="white", fg="black", font="Oswald, 12")
+period2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
 period3_label = Label(fenster, text="T/ms", bg="white", fg="black", font="Oswald, 12")
 
-timedif1_label = Label(fenster, text="Time Diff.:", bg="white", fg="black", font="Oswald, 12")
-timedif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12")
+timedif1_label = Label(fenster, text="Δt:", bg="white", fg="black", font="Oswald, 12")
+timedif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
 timedif3_label = Label(fenster, text="s", bg="white", fg="black", font="Oswald, 12")
 
-voltdif1_label = Label(fenster, text="Volt Diff.:", bg="white", fg="black", font="Oswald, 12")
-voltdif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12")
+voltdif1_label = Label(fenster, text="ΔU:", bg="white", fg="black", font="Oswald, 12")
+voltdif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
 voltdif3_label = Label(fenster, text="mV", bg="white", fg="black", font="Oswald, 12")
 
 # Buttons
@@ -483,19 +471,19 @@ trigger_value_label.place(x=5, y=210)
 trigger_volt_label.place(x=50, y=210)
 
 frequency1_label.place(x=5, y=260)
-frequency2_label.place(x=85, y=260)
+frequency2_label.place(x=55, y=260, width=70)
 frequency3_label.place(x=125, y=260)
 
 period1_label.place(x=5, y=290)
-period2_label.place(x=85, y=290)
+period2_label.place(x=55, y=290, width=70)
 period3_label.place(x=125, y=290)
 
 timedif1_label.place(x=5, y=320)
-timedif2_label.place(x=85, y=320)
+timedif2_label.place(x=55, y=320, width=70)
 timedif3_label.place(x=125, y=320)
 
 voltdif1_label.place(x=5, y=350)
-voltdif2_label.place(x=85, y=350)
+voltdif2_label.place(x=55, y=350, width=70)
 voltdif3_label.place(x=125, y=350)
 
 start_button.place(x=5, y=380)
