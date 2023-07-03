@@ -9,13 +9,12 @@ import gc
 from tkinter import ttk
 import scipy
 
-# from matplotlib.backend_bases import key_press_handler
 from matplotlib import pyplot as plt
 
 TOUCH_SCREEN_PERCENTAGE = 50
 
 # global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
-mode = "RPI"  # Betriebsmodus 0 = Mac, 1 = RPi
+mode = "MAC"  # Betriebsmodus 0 = MAC, 1 = RPi
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
 triggerValue = 0.0  # Variable für Triggerschwelle
@@ -36,7 +35,7 @@ vorteilerSelect = tkinter.StringVar()
 OFFSET = 13333
 
 GAIN_TO_MAX = {
-    2/3: 6.144,
+    2 / 3: 6.144,
     1: 4.096,
     2: 2.048,
     4: 1.024,
@@ -44,7 +43,7 @@ GAIN_TO_MAX = {
     16: 0.256
 }
 
-GAIN = 2/3
+GAIN = 2 / 3
 
 if mode == "RPI":
     import Adafruit_ADS1x15
@@ -63,7 +62,7 @@ if mode == "RPI":
     for i in range(10):
         OFFSET += adc.read_adc(channel=1, gain=GAIN)
     OFFSET /= 10
-        
+
     adc.start_adc(channel=CHANNEL, gain=GAIN, data_rate=samplePerSecond)
 
 
@@ -90,7 +89,7 @@ def window_close():
 
 if mode == "MAC":
     textDaten = []
-    datei = open("./rng3.txt", 'r')
+    datei = open("./rng2.txt", 'r')
     for line in datei.readlines():
         textDaten.append(float(line.strip()) / 2)
     counterDaten = 0
@@ -108,7 +107,6 @@ def readline():
             counterDaten = 0
     if mode == "RPI":
         y = adc.get_last_result()
-        #print(y)
     x = time.time()
     return x, y
 
@@ -124,9 +122,9 @@ def main_thread():
     time_update_action()
 
     prescaler = 1
-    if triggerSelect.get() == "1/4":
+    if vorteilerSelect.get() == "1/4":
         prescaler = 0.25
-    elif triggerSelect.get() == "1/2":
+    elif vorteilerSelect.get() == "1/2":
         prescaler = 0.5
 
     trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + OFFSET
@@ -164,8 +162,8 @@ def main_thread():
             else:
                 if data_old is None:
                     data_old = y
-                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))\
-                        or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3)))\
+                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3)) \
+                      or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
                         and (x > trigger_after_time):
                     data_old = None
                     triggered_at_time = x
@@ -195,8 +193,10 @@ def start_button_action():
     global thread
     if isRunning:
         return
-    reset_button_action()
+    reset_values_action()
     event.clear()
+    start_button.config(state="disabled")
+    stop_button.config(state="normal")
     isRunning = True
     thread = threading.Thread(target=main_thread)
     thread.do_run = True
@@ -209,19 +209,24 @@ def stop_button_action():
     global isRunning
     event.set()
     isRunning = False
+    stop_button.config(state="disabled")
+    start_button.config(state="normal")
 
 
-def reset_button_action():
+def reset_values_action():
     # Zurücksetzen aller Variablen und updaten des Graphen
     global data_x
     global data_y
-    global fig
-    global triggerValue
-    global subplot
+    global data_x_eval
+    global data_y_eval
     stop_button_action()
     data_x.clear()
     data_y.clear()
+    data_x_eval.clear()
+    data_y_eval.clear()
     make_fig_clear()
+    stop_button.config(state="disabled")
+    start_button.config(state="normal")
 
 
 def reset_zoom_callback():
@@ -273,16 +278,19 @@ def make_fig(triggered_at_time=None):
 
         N = len(data_y_eval)
         T = (4 * scaler_x) / N
-        # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
-        ft = scipy.fft(data_y)
-        arr = [abs(ft[i]) for i in range(1, N//2)]
+        x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
+        if mode == "MAC":
+            ft = scipy.fft.fft(data_y)
+        else:
+            ft = scipy.fft(data_y)
+        arr = [abs(ft[i]) for i in range(1, N // 2)]
         m = max(arr)
         f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
         frequency2_label.config(text=str(round(f, 3)))
         if f != 0:
             period2_label.config(text=str(round(1 / f, 3)))
-        # plt.plot(x_f[1:100], arr[1:100])
-        # plt.show()
+        plt.plot(x_f[1:100], arr[1:100])
+        plt.show()
 
     draw_graph(data_x_eval, data_y_eval)
 
@@ -306,6 +314,7 @@ def draw_graph(x, y):
 
     if triggerSelect.get() != 'None':
         subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
+        trigger_value_label.config(text=str(round(triggerValue, 2)))
     if curserOne is not None:
         for i in range(len(data_x_eval) - 1):
             if data_x_eval[i] < curserOne < data_x_eval[i + 1]:
@@ -336,6 +345,7 @@ def change_trigger_style(x, y):
     global data_x_eval
     global data_y_eval
     event.set()
+    print(triggerSelect.get())
     data_x_eval = []
     data_y_eval = []
     draw_graph([], [])
@@ -409,6 +419,36 @@ def on_release(e):
         return
 
 
+def save_file():
+    file = tkinter.filedialog.asksaveasfile()
+    file.write(str(scaler_x) + "\n")
+    file.write(str(scaler_y) + "\n")
+    for i in range(len(data_x_eval)):
+        file.write(str(data_x_eval[i]) + "," + str(data_y_eval[i]) + "\n")
+    file.close()
+
+
+def load_file():
+    global scaler_x
+    global scaler_y
+    global data_x_eval
+    global data_y_eval
+    global showFromTo
+    file = tkinter.filedialog.askopenfile()
+    scaler_x = float(file.readline())
+    time_str.set(str(scaler_x))
+    scaler_y = float(file.readline())
+    volt_str.set(str(scaler_y))
+    data_x_eval = []
+    data_y_eval = []
+    showFromTo = [-2 * scaler_x, 2 * scaler_x]
+    for line in file.readlines():
+        l = line.split(",")
+        data_x_eval.append(float(l[0]))
+        data_y_eval.append(float(l[1]))
+    draw_graph(data_x_eval, data_y_eval)
+
+
 # Fenster erstellen
 # fenster = Tk()
 fenster.title("Oszilloskop")  # Name des Fensters
@@ -419,8 +459,8 @@ voltage_label = Label(fenster, text="Volts", bg="#FFF", fg="#000", font="Oswald,
 time_label = Label(fenster, text="Time", bg="#FFF", fg="#000", font="Oswald, 18")
 
 triggerstyle_label = Label(fenster, text="Triggerstyle:", bg="#FFF", fg="#000", font="Oswald, 16")
-trigger_value_label = Label(fenster, text="0.0", bg="blue", fg="#000", font="Oswald, 18")
-trigger_volt_label = Label(fenster, text="V", bg="red", fg="#000", font="Oswald, 18", width=2)
+trigger_value_label = Label(fenster, text="0.0", bg="red", fg="#000", font="Oswald, 18", anchor="e")
+trigger_volt_label = Label(fenster, text="V", bg="#FFF", fg="#000", font="Oswald, 18", width=2)
 
 frequency1_label = Label(fenster, text="f:", bg="#FFF", fg="#000", font="Oswald, 12")
 frequency2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
@@ -438,12 +478,18 @@ voltdif1_label = Label(fenster, text="ΔU:", bg="white", fg="black", font="Oswal
 voltdif2_label = Label(fenster, text="0.0", bg="red", fg="black", font="Oswald, 12", anchor="e")
 voltdif3_label = Label(fenster, text="mV", bg="white", fg="black", font="Oswald, 12")
 
+divider_label = Label(fenster, text="Vorteiler", bg="white", fg="black", font="Oswald, 18")
+
 # Buttons
 start_button = Button(fenster, text="Start", command=start_button_action, bg="white", fg="black", width="4")
-stop_button = Button(fenster, text="Stop", command=stop_button_action, bg="white", fg="black", width="4")
-reset_values_button = Button(fenster, text="Reset Values", command=reset_button_action, height="1", width="10")
+stop_button = Button(fenster, text="Stop", command=stop_button_action, bg="white", fg="black", width="4",
+                     state="disabled")
+reset_values_button = Button(fenster, text="Reset Values", command=reset_values_action, height="1", width="10")
 reset_zoom_button = Button(fenster, text="Reset Zoom", command=reset_zoom_callback, width="10")
 reset_cursor_button = Button(fenster, text="Reset Cursor", command=reset_cursor_callback, width="10")
+
+load_button = Button(fenster, text="Load", command=load_file, height="1", width="10")
+save_button = Button(fenster, text="Save", command=save_file, height="1", width="10")
 
 # Spinboxes
 volt_str = StringVar(fenster)
@@ -465,7 +511,7 @@ trigger_style.place(x=5, y=170)
 trigger_style.current(0)
 
 vorteiler = ttk.Combobox(fenster, width=6, textvariable=vorteilerSelect, font="Oswald, 18",
-                            values=('None', '1/2', '1/4'), state="readonly")
+                         values=('None', '1/2', '1/4'), state="readonly")
 vorteiler.current(0)
 
 vorteiler.place(x=500, y=380)
@@ -481,8 +527,8 @@ time_spinbox.place(x=5, y=80, height=50)
 time_label.place(x=90, y=80, height=50)
 
 triggerstyle_label.place(x=5, y=140)
-trigger_value_label.place(x=5, y=210)
-trigger_volt_label.place(x=50, y=210)
+trigger_value_label.place(x=5, y=210, width=70)
+trigger_volt_label.place(x=80, y=210)
 
 frequency1_label.place(x=5, y=260)
 frequency2_label.place(x=55, y=260, width=70)
@@ -500,11 +546,16 @@ voltdif1_label.place(x=5, y=350)
 voltdif2_label.place(x=55, y=350, width=70)
 voltdif3_label.place(x=125, y=350)
 
+divider_label.place(x=600, y=380)
+
 start_button.place(x=5, y=380)
 stop_button.place(x=70, y=380)
 reset_values_button.place(x=135, y=380)
 reset_zoom_button.place(x=250, y=380)
 reset_cursor_button.place(x=365, y=380)
+
+load_button.place(x=620, y=380)
+save_button.place(x=660, y=380)
 
 # Main
 # Festlegen der Größe des Plots
@@ -519,13 +570,10 @@ fig.canvas.mpl_connect('button_release_event', on_release)
 make_fig()
 fenster.mainloop()
 
-# anzeige für cursor x/y + dif zwischen cursor
 # Platine
 
 # 13.6
 # Spannungsversorgung für ADC ändern
-# Trigger aktiv und Signal liegt an. Start drücken Signal vor Trigger nicht aufgezeichnet
-# todo Achsenskallierung y-Achse fixen
 # todo https://www.best-microcontroller-projects.com/ads1115.html
 # todo https://www.mikrocontroller.net/topic/439100
 # Überlegung Offset auf Eingangsspannung legen, damit keine neg. Versorgung notwendig wird
@@ -534,10 +582,10 @@ fenster.mainloop()
 # todo easyeda.com/de Schaltplan + Layout
 
 # 20.6
-# todo Frequenzdiagram auf knopfdruck
+# todo Frequenzdiagramm auf knopfdruck
 
 # 03.7
-# todo trigger scheint prescaler zu ignorieren
-# todo play/stop button einfügen
-# todo trigger schwelle wert anzeigen
-# todo fft überarbeiten? wert meistens 1-2 Hz über tatsäclichen Wert
+# trigger scheint prescaler zu ignorieren - 03.07.
+# play/stop button einfügen - 03.07
+# trigger schwelle wert anzeigen - 03.07
+# todo fft überarbeiten? wert meistens 1-2 Hz über tatsächlichen Wert
