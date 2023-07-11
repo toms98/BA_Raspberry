@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 TOUCH_SCREEN_PERCENTAGE = 50
 
 # global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
-mode = "RPI"  # Betriebsmodus 0 = MAC, 1 = RPi
+mode = "RPI"  # Betriebsmodus 0 = MAC, 1 = RPI
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
 triggerValue = 0.0  # Variable für Triggerschwelle
@@ -122,10 +122,13 @@ def main_thread():
     time_update_action()
 
     prescaler = 1
-    if vorteilerSelect.get() == "1/4":
+    if vorteilerSelect.get() == "Kein Vorteiler":
+        prescaler = 1
+    elif vorteilerSelect.get() == "Vorteiler: 1/4":
         prescaler = 0.25
-    elif vorteilerSelect.get() == "1/2":
+    elif vorteilerSelect.get() == "Vorteiler: 1/2":
         prescaler = 0.5
+    # print("pre: ", prescaler)
 
     trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + OFFSET
     print("trigger=", triggerValue, "  absolute=", trigger_absolute)
@@ -269,13 +272,14 @@ def make_fig(triggered_at_time=None):
 
         offset = OFFSET
         prescaler = 1
-        if vorteiler.current() == "1/4":
+        if vorteilerSelect.get() == "Kein Vorteiler":
+            prescaler = 1
+        elif vorteilerSelect.get() == "Vorteiler: 1/4":
             prescaler = 0.25
-        elif vorteiler.current() == "1/2":
+        elif vorteilerSelect.get() == "Vorteiler: 1/2":
             prescaler = 0.5
-        mult1 = 32768 * prescaler
-        print("mult: ", mult1)
-        mult = GAIN_TO_MAX[GAIN] / (mult1)
+        # print("pre2: ", prescaler)
+        mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
 
         N = len(data_y_eval)
@@ -460,7 +464,6 @@ def load_file():
 
 
 # Fenster erstellen
-# fenster = Tk()
 fenster.title("Oszilloskop")  # Name des Fensters
 fenster.configure(background="white")
 
@@ -602,4 +605,4 @@ fenster.mainloop()
 # 11.7
 # todo Error bei einstellen von time spinbox unter 0.1
 # todo fft ändern, vllt über cursor, da wert sonst immer falsch
-# todo Vorteiler wird nicht beachtet
+# Vorteiler wird nicht beachtet
