@@ -14,7 +14,7 @@ from matplotlib import pyplot as plt
 TOUCH_SCREEN_PERCENTAGE = 50
 
 # global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
-mode = "RPI"  # Betriebsmodus 0 = MAC, 1 = RPI
+mode = "MAC"  # Betriebsmodus 0 = MAC, 1 = RPI
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
 triggerValue = 0.0  # Variable für Triggerschwelle
@@ -606,3 +606,6 @@ fenster.mainloop()
 # todo Error bei einstellen von time spinbox unter 0.1
 # todo fft ändern, vllt über cursor, da wert sonst immer falsch
 # Vorteiler wird nicht beachtet
+
+# 12.7
+# todo bei Trigger "None" V-Wert und 'V' ausblenden
