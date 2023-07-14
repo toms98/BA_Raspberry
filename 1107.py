@@ -223,6 +223,7 @@ def reset_values_action():
     global data_x_eval
     global data_y_eval
     stop_button_action()
+    reset_cursor_callback()
     data_x.clear()
     data_y.clear()
     data_x_eval.clear()
@@ -278,25 +279,24 @@ def make_fig(triggered_at_time=None):
             prescaler = 0.25
         elif vorteilerSelect.get() == "Vorteiler: 1/2":
             prescaler = 0.5
-        # print("pre2: ", prescaler)
         mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
 
-        N = len(data_y_eval)
-        T = (4 * scaler_x) / N
-        x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
-        if mode == "MAC":
-            ft = scipy.fft.fft(data_y)
-        else:
-            ft = scipy.fft(data_y)
-        arr = [abs(ft[i]) for i in range(1, N // 2)]
-        m = max(arr)
-        f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
-        frequency2_label.config(text=str(round(f, 3)))
-        if f != 0:
-            period2_label.config(text=str(round(1 / f, 3)))
-        plt.plot(x_f[1:100], arr[1:100])
-        #plt.show()
+        # N = len(data_y_eval)
+        # T = (4 * scaler_x) / N
+        # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
+        # if mode == "MAC":
+        #     ft = scipy.fft.fft(data_y)
+        # else:
+        #     ft = scipy.fft(data_y)
+        # arr = [abs(ft[i]) for i in range(1, N // 2)]
+        # m = max(arr)
+        # f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
+        # frequency2_label.config(text=str(round(f, 3)))
+        # if f != 0:
+        #     period2_label.config(text=str(round(1 / f, 3)))
+        # plt.plot(x_f[1:100], arr[1:100])
+        # #plt.show()
 
     draw_graph(data_x_eval, data_y_eval)
 
@@ -331,7 +331,7 @@ def draw_graph(x, y):
         trigger_value_label.config(text=str(round(triggerValue, 2)))
     if curserOne is not None:
         for i in range(len(data_x_eval) - 1):
-            if data_x_eval[i] < curserOne < data_x_eval[i + 1]:
+            if data_x_eval[i] <= curserOne <= data_x_eval[i + 1]:
                 voltage1 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
         subplot.axvline(x=curserOne, color='b')
         subplot.text(curserOne + 0.01 * scaler_x, 1.85 * scaler_y, "1", color="b")
@@ -339,19 +339,25 @@ def draw_graph(x, y):
         subplot.text(curserOne + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage1, 2)) + "V", color="b")
     if curserTwo is not None:
         for i in range(len(data_x_eval) - 1):
-            if data_x_eval[i] < curserTwo < data_x_eval[i + 1]:
+            if data_x_eval[i] <= curserTwo <= data_x_eval[i + 1]:
                 voltage2 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
         subplot.axvline(x=curserTwo, color='b')
         subplot.text(curserTwo + 0.01 * scaler_x, 1.85 * scaler_y, "2", color="b")
         subplot.text(curserTwo + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserTwo, 2)) + "s", color="b")
         subplot.text(curserTwo + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage2, 2)) + "V", color="b")
     if curserOne is not None and curserTwo is not None:
-        timedif2_label.config(text=str(round(abs(curserTwo - curserOne), 3)))
+        time_dif = abs(curserTwo - curserOne)
+        timedif2_label.config(text=str(round(time_dif, 3)))
         voltdif2_label.config(text=str(round(abs((voltage2 - voltage1) * 1000), 1)))
         print("cursor1: x=", curserOne, " y=", voltage1)
         print("cursor2: x=", curserTwo, " y=", voltage2)
+        period2_label.config(text=str(round(time_dif, 3)))
+        frequency2_label.config(text=str(round(1/time_dif, 3)))
     else:
+        frequency2_label.config(text="0.0")
+        period2_label.config(text="0.0")
         timedif2_label.config(text="0.0")
+        voltdif2_label.config(text="0.0")
     fig.canvas.draw_idle()
 
 
@@ -360,6 +366,12 @@ def change_trigger_style(x, y):
     global data_y_eval
     event.set()
     print(triggerSelect.get())
+    if triggerSelect.get() == "None":
+        trigger_value_label.config(text="")
+        trigger_volt_label.config(text="")
+    else:
+        trigger_value_label.config(text=str(round(triggerValue, 2)))
+        trigger_volt_label.config(text="V")
     data_x_eval = []
     data_y_eval = []
     draw_graph([], [])
@@ -385,14 +397,14 @@ def on_release(e):
         make_fig()
         return
     if curserOne is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserOne - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserOne + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
+            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserOne + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserOne = e.xdata
         make_fig()
         return
     if curserOne is not None and e.xdata is None and eOld.xdata is not None and (
-            curserOne - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserOne + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
+            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserOne + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserOne = None
         make_fig()
         return
@@ -403,14 +415,14 @@ def on_release(e):
         make_fig()
         return
     if curserTwo is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserTwo - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserTwo + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
+            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserTwo + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserTwo = e.xdata
         make_fig()
         return
     if curserTwo is not None and e.xdata is None and eOld.xdata is not None and (
-            curserTwo - 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
-            curserTwo + 2 * abs(showFromTo[1]) / TOUCH_SCREEN_PERCENTAGE):
+            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+            curserTwo + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserTwo = None
         make_fig()
         return
@@ -606,6 +618,3 @@ fenster.mainloop()
 # todo Error bei einstellen von time spinbox unter 0.1
 # todo fft ändern, vllt über cursor, da wert sonst immer falsch
 # Vorteiler wird nicht beachtet
-
-# 12.7
-# todo bei Trigger "None" V-Wert und 'V' ausblenden
