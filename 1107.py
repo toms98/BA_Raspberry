@@ -7,13 +7,8 @@ import threading
 import time
 import gc
 from tkinter import ttk
-import scipy
-
-from matplotlib import pyplot as plt
 
 TOUCH_SCREEN_PERCENTAGE = 50
-
-# global mode, scaler_x, scaler_y, trigger, event, samplePerSecond, data_x, data_y, isRunning, thread
 mode = "MAC"  # Betriebsmodus 0 = MAC, 1 = RPI
 scaler_x = 0.5  # X-Achsen Skalierung
 scaler_y = 3  # Y-Achsen Skalierung
@@ -28,7 +23,7 @@ data_y = []  # Datenarray für Y-Werte
 data_x_eval = []  # Datenarray für X-Werte
 data_y_eval = []  # Datenarray für Y-Werte
 isRunning = False  # Boolean für Aufzeichnung (in)aktiv
-thread = threading.Thread  # todo kommentar
+thread = threading.Thread
 fenster = Tk()  # Fenster das bei Start geöffnet wird
 triggerSelect = tkinter.StringVar()
 vorteilerSelect = tkinter.StringVar()
@@ -89,7 +84,7 @@ def window_close():
 
 if mode == "MAC":
     textDaten = []
-    datei = open("./rng2.txt", 'r')
+    datei = open("./rng.txt", 'r')
     for line in datei.readlines():
         textDaten.append(float(line.strip()) / 2)
     counterDaten = 0
@@ -165,7 +160,7 @@ def main_thread():
             else:
                 if data_old is None:
                     data_old = y
-                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3)) \
+                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))
                       or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
                         and (x > trigger_after_time):
                     data_old = None
@@ -282,6 +277,7 @@ def make_fig(triggered_at_time=None):
         mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
         data_y_eval = [(i - offset) * mult for i in data_y]
 
+        # Frequenzberechnung mit fft bei äquidistanter Abtastung
         # N = len(data_y_eval)
         # T = (4 * scaler_x) / N
         # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
@@ -315,7 +311,7 @@ def draw_graph(x, y):
     subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
     subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
     
-    #Division Linien
+    # Division Linien
     subplot.axhline(y=-scaler_y, color='grey', linestyle='-.', linewidth='0.1')
     subplot.axhline(y=0, color='grey', linestyle='-.', linewidth='0.1')
     subplot.axhline(y=scaler_y, color='grey', linestyle='-.', linewidth='0.1')
@@ -593,28 +589,3 @@ fig.canvas.mpl_connect('button_release_event', on_release)
 
 make_fig()
 fenster.mainloop()
-
-# Platine
-
-# 13.6
-# Spannungsversorgung für ADC ändern
-# todo https://www.best-microcontroller-projects.com/ads1115.html
-# todo https://www.mikrocontroller.net/topic/439100
-# Überlegung Offset auf Eingangsspannung legen, damit keine neg. Versorgung notwendig wird
-
-# todo falstad.com/circuit Simulation
-# todo easyeda.com/de Schaltplan + Layout
-
-# 20.6
-# todo Frequenzdiagramm auf knopfdruck
-
-# 03.7
-# trigger scheint prescaler zu ignorieren - 03.07.
-# play/stop button einfügen - 03.07
-# trigger schwelle wert anzeigen - 03.07
-# todo fft überarbeiten? wert meistens 1-2 Hz über tatsächlichen Wert
-
-# 11.7
-# todo Error bei einstellen von time spinbox unter 0.1
-# todo fft ändern, vllt über cursor, da wert sonst immer falsch
-# Vorteiler wird nicht beachtet
