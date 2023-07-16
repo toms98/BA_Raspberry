@@ -16,7 +16,7 @@ triggerValue = 0.0  # Variable für Triggerschwelle
 curserOne = None
 curserTwo = None
 showFromTo = [-2 * scaler_x, 2 * scaler_x]
-event = threading.Event()  # Event für Threading Prozess
+interrupt_event = threading.Event()  # Event für Threading Prozess
 samplePerSecond = 860  # Samples per Second des Microcontrollers
 data_x = []  # Datenarray für X-Werte
 data_y = []  # Datenarray für Y-Werte
@@ -78,137 +78,18 @@ def volt_update_action():
 
 
 def window_close():
-    event.set()
+    interrupt_event.set()
     fenster.destroy()
 
 
-if mode == "MAC":
-    textDaten = []
-    datei = open("./rng.txt", 'r')
-    for line in datei.readlines():
-        textDaten.append(float(line.strip()) / 2)
-    counterDaten = 0
-
-
-def readline():
-    global counterDaten
-    y = 0
-    if mode == "MAC":
-        for i in range(1000):
-            print(end="")
-        y = textDaten[counterDaten]
-        counterDaten += 1
-        if counterDaten == len(textDaten):
-            counterDaten = 0
-    if mode == "RPI":
-        y = adc.get_last_result()
-    x = time.time()
-    return x, y
-
-
-def main_thread():
-    global isRunning
-    global data_x
-    global data_y
-
-    data_old = None
-    is_triggered = False
-
-    time_update_action()
-
-    prescaler = 1
-    if vorteilerSelect.get() == "Kein Vorteiler":
-        prescaler = 1
-    elif vorteilerSelect.get() == "Vorteiler: 1/4":
-        prescaler = 0.25
-    elif vorteilerSelect.get() == "Vorteiler: 1/2":
-        prescaler = 0.5
-    # print("pre: ", prescaler)
-
-    trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + OFFSET
-    print("trigger=", triggerValue, "  absolute=", trigger_absolute)
-    do_trigger = 0
-    if triggerSelect.get() == "Falling":
-        do_trigger = 1
-    elif triggerSelect.get() == "Rising":
-        do_trigger = 2
-    elif triggerSelect.get() == "Both":
-        do_trigger = 3
-
-    x, y = readline()
-    data_x.append(x)
-    data_y.append(y)
-
-    display_full_time = x + 4 * scaler_x
-    trigger_after_time = x + 0.5 * scaler_x
-    triggered_at_time = None
-
-    if do_trigger == 0:
-        # nicht triggern
-        while True:
-            # beenden
-            if event.is_set():
-                event.clear()
-                break
-
-            # Werte holen
-            x, y = readline()
-            data_x.append(x)
-            data_y.append(y)
-
-            # Darstellen
-            if x > display_full_time:
-                make_fig()
-                data_x = []
-                data_y = []
-                gc.collect()
-                time.sleep(0.2)
-                x, y = readline()
-                data_x.append(x)
-                data_y.append(y)
-                display_full_time = x + 4 * scaler_x
-    else:
-        # triggern
-        while True:
-            # beenden
-            if event.is_set():
-                event.clear()
-                break
-
-            # Werte holen
-            x, y = readline()
-            data_x.append(x)
-            data_y.append(y)
-
-            if is_triggered:
-                # trigger bereits ausgelöst
-                if x > display_full_time:
-                    make_fig(triggered_at_time=triggered_at_time)
-                    break
-            else:
-                # trigger noch nicht ausgelöst
-                if data_old is None:
-                    data_old = y
-                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))
-                      or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
-                        and (x > trigger_after_time):
-                    data_old = None
-                    triggered_at_time = x
-                    is_triggered = True
-                else:
-                    data_old = y
-
-    isRunning = False
-
-
 def start_button_action():
-    global event
+    global interrupt_event
     global isRunning
     global thread
     if isRunning:
         return
     reset_values_action()
-    event.clear()
+    interrupt_event.clear()
     start_button.config(state="disabled")
     stop_button.config(state="normal")
     isRunning = True
@@ -219,9 +100,9 @@ def start_button_action():
 
 def stop_button_action():
     # Stoppen des Auslese-Threads
-    global event
+    global interrupt_event
     global isRunning
-    event.set()
+    interrupt_event.set()
     isRunning = False
     stop_button.config(state="disabled")
     start_button.config(state="normal")
@@ -258,125 +139,10 @@ def reset_cursor_callback():
     make_fig()
 
 
-tlast = time.time()
-
-
-# noinspection PyUnresolvedReferences
-def make_fig(triggered_at_time=None):
-    global subplot
-    global tlast
-    global data_x
-    global data_y
-    global data_x_eval
-    global data_y_eval
-
-    print("zeit: ", time.time() - tlast)
-    tlast = time.time()
-    print("punkte: ", len(data_x), " freq: ", len(data_x) / (4 * scaler_x))
-
-    if isRunning:
-        if triggered_at_time is None:
-            shift = data_x[0] + 2 * scaler_x
-            data_x_eval = [i - shift for i in data_x]
-        else:
-            shift = triggered_at_time + 1.5 * scaler_x
-            data_x_eval = [i - shift for i in data_x]
-
-        offset = OFFSET
-        prescaler = 1
-        if vorteilerSelect.get() == "Kein Vorteiler":
-            prescaler = 1
-        elif vorteilerSelect.get() == "Vorteiler: 1/4":
-            prescaler = 0.25
-        elif vorteilerSelect.get() == "Vorteiler: 1/2":
-            prescaler = 0.5
-        mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
-        data_y_eval = [(i - offset) * mult for i in data_y]
-
-        # Frequenzberechnung mit fft bei äquidistanter Abtastung
-        # N = len(data_y_eval)
-        # T = (4 * scaler_x) / N
-        # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
-        # if mode == "MAC":
-        #     ft = scipy.fft.fft(data_y)
-        # else:
-        #     ft = scipy.fft(data_y)
-        # arr = [abs(ft[i]) for i in range(1, N // 2)]
-        # m = max(arr)
-        # f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
-        # frequency2_label.config(text=str(round(f, 3)))
-        # if f != 0:
-        #     period2_label.config(text=str(round(1 / f, 3)))
-        # plt.plot(x_f[1:100], arr[1:100])
-        # #plt.show()
-
-    draw_graph(data_x_eval, data_y_eval)
-
-
-# noinspection PyUnresolvedReferences
-def make_fig_clear():
-    draw_graph([], [])
-
-
-def draw_graph(x, y):
-    global subplot
-
-    fig.delaxes(subplot)
-    subplot = fig.add_subplot(111)
-    subplot.plot(x, y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
-    subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
-    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
-    
-    # Division Linien
-    subplot.axhline(y=-scaler_y, color='grey', linestyle='-.', linewidth='0.1')
-    subplot.axhline(y=0, color='grey', linestyle='-.', linewidth='0.1')
-    subplot.axhline(y=scaler_y, color='grey', linestyle='-.', linewidth='0.1')
-    subplot.axvline(x=-scaler_x, color='grey', linestyle='-.', linewidth='0.1')
-    subplot.axvline(x=0, color='grey', linestyle='-.', linewidth='0.1')
-    subplot.axvline(x=scaler_x, color='grey', linestyle='-.', linewidth='0.1')
-
-    voltage1 = 0
-    voltage2 = 0
-
-    if triggerSelect.get() != 'None':
-        subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
-        trigger_value_label.config(text=str(round(triggerValue, 2)))
-    if curserOne is not None:
-        for i in range(len(data_x_eval) - 1):
-            if data_x_eval[i] <= curserOne <= data_x_eval[i + 1]:
-                voltage1 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
-        subplot.axvline(x=curserOne, color='b')
-        subplot.text(curserOne + 0.01 * scaler_x, 1.85 * scaler_y, "1", color="b")
-        subplot.text(curserOne + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserOne, 2)) + "s", color="b")
-        subplot.text(curserOne + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage1, 2)) + "V", color="b")
-    if curserTwo is not None:
-        for i in range(len(data_x_eval) - 1):
-            if data_x_eval[i] <= curserTwo <= data_x_eval[i + 1]:
-                voltage2 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
-        subplot.axvline(x=curserTwo, color='b')
-        subplot.text(curserTwo + 0.01 * scaler_x, 1.85 * scaler_y, "2", color="b")
-        subplot.text(curserTwo + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserTwo, 2)) + "s", color="b")
-        subplot.text(curserTwo + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage2, 2)) + "V", color="b")
-    if curserOne is not None and curserTwo is not None:
-        time_dif = abs(curserTwo - curserOne)
-        timedif2_label.config(text=str(round(time_dif, 3)))
-        voltdif2_label.config(text=str(round(abs((voltage2 - voltage1) * 1000), 1)))
-        print("cursor1: x=", curserOne, " y=", voltage1)
-        print("cursor2: x=", curserTwo, " y=", voltage2)
-        period2_label.config(text=str(round(time_dif, 3)))
-        frequency2_label.config(text=str(round(1/time_dif, 3)))
-    else:
-        frequency2_label.config(text="0.0")
-        period2_label.config(text="0.0")
-        timedif2_label.config(text="0.0")
-        voltdif2_label.config(text="0.0")
-    fig.canvas.draw_idle()
-
-
 def change_trigger_style(x, y):
     global data_x_eval
     global data_y_eval
-    event.set()
+    interrupt_event.set()
     print(triggerSelect.get())
     if triggerSelect.get() == "None":
         trigger_value_label.config(text="")
@@ -485,6 +251,240 @@ def load_file():
         data_x_eval.append(float(l[0]))
         data_y_eval.append(float(l[1]))
     draw_graph(data_x_eval, data_y_eval)
+
+
+if mode == "MAC":
+    textDaten = []
+    datei = open("./rng.txt", 'r')
+    for line in datei.readlines():
+        textDaten.append(float(line.strip()) / 2)
+    counterDaten = 0
+
+
+def readline():
+    global counterDaten
+    y = 0
+    if mode == "MAC":
+        for i in range(1000):
+            print(end="")
+        y = textDaten[counterDaten]
+        counterDaten += 1
+        if counterDaten == len(textDaten):
+            counterDaten = 0
+    if mode == "RPI":
+        y = adc.get_last_result()
+    x = time.time()
+    return x, y
+
+
+def main_thread():
+    global isRunning
+    global data_x
+    global data_y
+
+    data_old = None
+    is_triggered = False
+
+    time_update_action()
+
+    prescaler = 1
+    if vorteilerSelect.get() == "Kein Vorteiler":
+        prescaler = 1
+    elif vorteilerSelect.get() == "Vorteiler: 1/4":
+        prescaler = 0.25
+    elif vorteilerSelect.get() == "Vorteiler: 1/2":
+        prescaler = 0.5
+
+    do_trigger = 0
+    if triggerSelect.get() == "Falling":
+        do_trigger = 1
+    elif triggerSelect.get() == "Rising":
+        do_trigger = 2
+    elif triggerSelect.get() == "Both":
+        do_trigger = 3
+
+    x, y = readline()
+    data_x.append(x)
+    data_y.append(y)
+
+    display_full_time = x + 4 * scaler_x
+
+    if do_trigger == 0:
+        # nicht triggern
+        while True:
+            # beenden
+            if interrupt_event.is_set():
+                interrupt_event.clear()
+                break
+
+            # Werte holen
+            x, y = readline()
+            data_x.append(x)
+            data_y.append(y)
+
+            # Darstellen
+            if x > display_full_time:
+                make_fig()
+                data_x = []
+                data_y = []
+                gc.collect()
+                time.sleep(0.2)
+                x, y = readline()
+                data_x.append(x)
+                data_y.append(y)
+                display_full_time = x + 4 * scaler_x
+    else:
+        # triggern
+        trigger_absolute = triggerValue * prescaler * 32768 / GAIN_TO_MAX[GAIN] + OFFSET
+        trigger_after_time = x + 0.5 * scaler_x
+        triggered_at_time = None
+        while True:
+            # beenden
+            if interrupt_event.is_set():
+                interrupt_event.clear()
+                break
+
+            # Werte holen
+            x, y = readline()
+            data_x.append(x)
+            data_y.append(y)
+
+            if is_triggered:
+                # trigger bereits ausgelöst
+                if x > display_full_time:
+                    make_fig(triggered_at_time=triggered_at_time)
+                    break
+            else:
+                # trigger noch nicht ausgelöst
+                if data_old is None:
+                    data_old = y
+                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))
+                      or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
+                        and (x > trigger_after_time):
+                    display_full_time = x + 3.5 * scaler_x
+                    triggered_at_time = x
+                    is_triggered = True
+                else:
+                    data_old = y
+
+    isRunning = False
+
+
+tlast = time.time()
+
+
+# noinspection PyUnresolvedReferences
+def make_fig(triggered_at_time=None):
+    global subplot
+    global tlast
+    global data_x
+    global data_y
+    global data_x_eval
+    global data_y_eval
+
+    # print("zeit: ", time.time() - tlast)
+    tlast = time.time()
+    # print("punkte: ", len(data_x), " freq: ", len(data_x) / (4 * scaler_x))
+
+    if isRunning:
+        if triggered_at_time is None:
+            shift = data_x[0] + 2 * scaler_x
+            data_x_eval = [i - shift for i in data_x]
+        else:
+            shift = triggered_at_time + 1.5 * scaler_x
+            data_x_eval = [i - shift for i in data_x]
+
+        prescaler = 1
+        if vorteilerSelect.get() == "Kein Vorteiler":
+            prescaler = 1
+        elif vorteilerSelect.get() == "Vorteiler: 1/4":
+            prescaler = 0.25
+        elif vorteilerSelect.get() == "Vorteiler: 1/2":
+            prescaler = 0.5
+        mult = GAIN_TO_MAX[GAIN] / (32768 * prescaler)
+        data_y_eval = [(i - OFFSET) * mult for i in data_y]
+
+        # Frequenzberechnung mit fft bei äquidistanter Abtastung
+        # N = len(data_y_eval)
+        # T = (4 * scaler_x) / N
+        # x_f = [(i / (N // 2)) * 1.0 / (2.0 * T) for i in range(0, N // 2)]
+        # if mode == "MAC":
+        #     ft = scipy.fft.fft(data_y)
+        # else:
+        #     ft = scipy.fft(data_y)
+        # arr = [abs(ft[i]) for i in range(1, N // 2)]
+        # m = max(arr)
+        # f = (arr.index(m) / (N // 2)) * 1.0 / (2.0 * T)
+        # frequency2_label.config(text=str(round(f, 3)))
+        # if f != 0:
+        #     period2_label.config(text=str(round(1 / f, 3)))
+        # plt.plot(x_f[1:100], arr[1:100])
+        # #plt.show()
+
+    draw_graph(data_x_eval, data_y_eval)
+
+
+# noinspection PyUnresolvedReferences
+def make_fig_clear():
+    draw_graph([], [])
+
+
+def draw_graph(x, y):
+    global subplot
+
+    fig.delaxes(subplot)
+    subplot = fig.add_subplot(111)
+    subplot.plot(x, y, 'g', linewidth=0.2)  # Hinzufügen des Graphen mit Werten der data-Arrays
+    subplot.set_xlim(showFromTo[0], showFromTo[1])  # Festlegen der Randwerte der x-Achse
+    subplot.set_ylim(-scaler_y * 2, scaler_y * 2)  # Festlegen der Randwerte der y-Achse
+    
+    # Division Linien
+    subplot.axhline(y=-scaler_y, color='grey', linestyle='-.', linewidth='0.1')
+    subplot.axhline(y=0, color='grey', linestyle='-.', linewidth='0.1')
+    subplot.axhline(y=scaler_y, color='grey', linestyle='-.', linewidth='0.1')
+    subplot.axvline(x=-scaler_x, color='grey', linestyle='-.', linewidth='0.1')
+    subplot.axvline(x=0, color='grey', linestyle='-.', linewidth='0.1')
+    subplot.axvline(x=scaler_x, color='grey', linestyle='-.', linewidth='0.1')
+
+    voltage1 = 0
+    voltage2 = 0
+
+    if triggerSelect.get() != 'None':
+        subplot.axhline(y=triggerValue, color='r')  # rote horizontale Linie für Triggerschwelle
+        trigger_value_label.config(text=str(round(triggerValue, 2)))
+    if curserOne is not None:
+        for i in range(len(data_x_eval) - 1):
+            if data_x_eval[i] <= curserOne <= data_x_eval[i + 1]:
+                voltage1 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
+        subplot.axvline(x=curserOne, color='b')
+        subplot.text(curserOne + 0.01 * scaler_x, 1.85 * scaler_y, "1", color="b")
+        subplot.text(curserOne + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserOne, 2)) + "s", color="b")
+        subplot.text(curserOne + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage1, 2)) + "V", color="b")
+    if curserTwo is not None:
+        for i in range(len(data_x_eval) - 1):
+            if data_x_eval[i] <= curserTwo <= data_x_eval[i + 1]:
+                voltage2 = (data_y_eval[i] + data_y_eval[i + 1]) / 2
+        subplot.axvline(x=curserTwo, color='b')
+        subplot.text(curserTwo + 0.01 * scaler_x, 1.85 * scaler_y, "2", color="b")
+        subplot.text(curserTwo + 0.01 * scaler_x, -1.95 * scaler_y, "t=" + str(round(curserTwo, 2)) + "s", color="b")
+        subplot.text(curserTwo + 0.01 * scaler_x, -1.75 * scaler_y, "U=" + str(round(voltage2, 2)) + "V", color="b")
+    if curserOne is not None and curserTwo is not None:
+        time_dif = abs(curserTwo - curserOne)
+        timedif2_label.config(text=str(round(time_dif, 3)))
+        voltdif2_label.config(text=str(round(abs((voltage2 - voltage1) * 1000), 1)))
+        print("cursor1: x=", curserOne, " y=", voltage1)
+        print("cursor2: x=", curserTwo, " y=", voltage2)
+        period2_label.config(text=str(round(time_dif, 3)))
+        frequency2_label.config(text=str(round(1/time_dif, 3)))
+    else:
+        frequency2_label.config(text="0.0")
+        period2_label.config(text="0.0")
+        timedif2_label.config(text="0.0")
+        voltdif2_label.config(text="0.0")
+    fig.canvas.draw_idle()
+
+
+
 
 
 # Fenster erstellen

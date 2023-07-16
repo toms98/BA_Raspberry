@@ -20,7 +20,7 @@ triggerValue = 2.0  # Variable für Triggerschwelle
 curserOne = None
 curserTwo = None
 showFromTo = [-2 * scaler_x, 2 * scaler_x]
-event = threading.Event()  # Event für Threading Prozess
+interrupt_event = threading.Event()  # Event für Threading Prozess
 samplePerSecond = 860  # Samples per Second des Microcontrollers
 data_x = []  # Datenarray für X-Werte
 data_y = []  # Datenarray für Y-Werte
@@ -88,7 +88,7 @@ def volt_update_action():
 
 
 def window_close():
-    global event
+    global interrupt_event
     event.set()
     fenster.destroy()
 
@@ -156,8 +156,8 @@ def main_thread():
     triggered_at_time = None
 
     while True:
-        if event.is_set():
-            event.clear()
+        if interrupt_event.is_set():
+            interrupt_event.clear()
             break
 
         x, y = readline()
@@ -196,7 +196,7 @@ def main_thread():
 
 
 def start_button_action():
-    global event
+    global interrupt_event
     global isRunning
     global thread
     if isRunning:
@@ -211,7 +211,7 @@ def start_button_action():
 
 def stop_button_action():
     # Stoppen des Auslese-Threads
-    global event
+    global interrupt_event
     global isRunning
     event.set()
     isRunning = False

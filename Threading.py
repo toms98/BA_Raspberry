@@ -26,8 +26,8 @@ scaler_y = 3
 global triggerValue  # Variable für Triggerschwelle
 triggerValue = 0.0
 
-global event  # Event für Threading Prozess
-event = threading.Event()
+global interrupt_event  # Event für Threading Prozess
+interrupt_event = threading.Event()
 
 # global data_rx_x  # Array für Daten auf der x-Achse
 # data_rx_x = []
@@ -90,7 +90,7 @@ def trigger_update_action():
 
 
 def windowClose():
-    global event
+    global interrupt_event
     event.set()
     fenster.destroy()
 
@@ -167,8 +167,8 @@ def mainThread():
 
     t1 = 0
     while (True):
-        if event.is_set():
-            event.clear()
+        if interrupt_event.is_set():
+            interrupt_event.clear()
             break
         # data = readLine2()
         data = q.get()
@@ -222,7 +222,7 @@ def mainThread():
 
 
 def start_button_action():
-    global event
+    global interrupt_event
     global isRunning
     global thread
     global checker
@@ -239,7 +239,7 @@ def start_button_action():
 
 def stop_button_action():
     # Stoppen des Auslese-Threads
-    global event
+    global interrupt_event
     global isRunning
     global thread
     global timer
@@ -253,7 +253,7 @@ def reset_button_action():
     global data_x
     global data_y
     global fig
-    global event
+    global interrupt_event
     global isRunning
     stop_button_action()
     data_x.clear()
@@ -284,7 +284,7 @@ def makeFig():
     global data_y
     global subplot
     global fig
-    global event
+    global interrupt_event
 
     fig.delaxes(subplot)
     subplot = fig.add_subplot(111)
