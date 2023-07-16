@@ -143,34 +143,20 @@ def main_thread():
     trigger_after_time = x + 0.5 * scaler_x
     triggered_at_time = None
 
-    while True:
-        if event.is_set():
-            event.clear()
-            break
+    if do_trigger == 0:
+        # nicht triggern
+        while True:
+            # beenden
+            if event.is_set():
+                event.clear()
+                break
 
-        x, y = readline()
-        data_x.append(x)
-        data_y.append(y)
-        # Trigger
-        if do_trigger != 0:
-            if is_triggered:
-                if x > display_full_time:
-                    make_fig(triggered_at_time=triggered_at_time)
-                    break
-            else:
-                if data_old is None:
-                    data_old = y
-                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))
-                      or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
-                        and (x > trigger_after_time):
-                    data_old = None
-                    triggered_at_time = x
-                    is_triggered = True
-                else:
-                    data_old = y
+            # Werte holen
+            x, y = readline()
+            data_x.append(x)
+            data_y.append(y)
 
-        # nicht Trigger
-        else:
+            # Darstellen
             if x > display_full_time:
                 make_fig()
                 data_x = []
@@ -181,6 +167,36 @@ def main_thread():
                 data_x.append(x)
                 data_y.append(y)
                 display_full_time = x + 4 * scaler_x
+    else:
+        # triggern
+        while True:
+            # beenden
+            if event.is_set():
+                event.clear()
+                break
+
+            # Werte holen
+            x, y = readline()
+            data_x.append(x)
+            data_y.append(y)
+
+            if is_triggered:
+                # trigger bereits ausgelöst
+                if x > display_full_time:
+                    make_fig(triggered_at_time=triggered_at_time)
+                    break
+            else:
+                # trigger noch nicht ausgelöst
+                if data_old is None:
+                    data_old = y
+                elif (((y >= trigger_absolute >= data_old) and (do_trigger == 2 or do_trigger == 3))
+                      or ((y <= trigger_absolute <= data_old) and (do_trigger == 1 or do_trigger == 3))) \
+                        and (x > trigger_after_time):
+                    data_old = None
+                    triggered_at_time = x
+                    is_triggered = True
+                else:
+                    data_old = y
 
     isRunning = False
 
@@ -375,11 +391,11 @@ def change_trigger_style(x, y):
 
 # noinspection PyGlobalUndefined
 def on_click(e):
-    global eOld
-    eOld = e
+    global onClickEvent
+    onClickEvent = e
 
 
-def on_release(e):
+def on_release(on_release_event):
     global curserOne
     global curserTwo
     global triggerValue
@@ -388,55 +404,55 @@ def on_release(e):
         return
 
     # move curser one
-    if curserOne is None and eOld.xdata is None and e.xdata is not None:
-        curserOne = e.xdata
+    if curserOne is None and onClickEvent.xdata is None and on_release_event.xdata is not None:
+        curserOne = on_release_event.xdata
         make_fig()
         return
-    if curserOne is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+    if curserOne is not None and on_release_event.xdata is not None and onClickEvent.xdata is not None and (
+            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < onClickEvent.xdata < (
             curserOne + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
-        curserOne = e.xdata
+        curserOne = on_release_event.xdata
         make_fig()
         return
-    if curserOne is not None and e.xdata is None and eOld.xdata is not None and (
-            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+    if curserOne is not None and on_release_event.xdata is None and onClickEvent.xdata is not None and (
+            curserOne - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < onClickEvent.xdata < (
             curserOne + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserOne = None
         make_fig()
         return
 
     # move curser two
-    if curserTwo is None and eOld.xdata is None and e.xdata is not None:
-        curserTwo = e.xdata
+    if curserTwo is None and onClickEvent.xdata is None and on_release_event.xdata is not None:
+        curserTwo = on_release_event.xdata
         make_fig()
         return
-    if curserTwo is not None and e.xdata is not None and eOld.xdata is not None and (
-            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+    if curserTwo is not None and on_release_event.xdata is not None and onClickEvent.xdata is not None and (
+            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < onClickEvent.xdata < (
             curserTwo + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
-        curserTwo = e.xdata
+        curserTwo = on_release_event.xdata
         make_fig()
         return
-    if curserTwo is not None and e.xdata is None and eOld.xdata is not None and (
-            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < eOld.xdata < (
+    if curserTwo is not None and on_release_event.xdata is None and onClickEvent.xdata is not None and (
+            curserTwo - (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE) < onClickEvent.xdata < (
             curserTwo + (showFromTo[1] - showFromTo[0]) / TOUCH_SCREEN_PERCENTAGE):
         curserTwo = None
         make_fig()
         return
 
     # move trigger
-    if triggerSelect.get() != 'None' and e.ydata is not None and eOld.ydata is not None and (
-            triggerValue - 8 * scaler_y / TOUCH_SCREEN_PERCENTAGE) < eOld.ydata < (
+    if triggerSelect.get() != 'None' and on_release_event.ydata is not None and onClickEvent.ydata is not None and (
+            triggerValue - 8 * scaler_y / TOUCH_SCREEN_PERCENTAGE) < onClickEvent.ydata < (
             triggerValue + 8 * scaler_y / TOUCH_SCREEN_PERCENTAGE):
-        triggerValue = e.ydata
+        triggerValue = on_release_event.ydata
         make_fig()
         return
 
     # zoom
-    if e.xdata is not None and eOld.xdata is not None:
-        if eOld.xdata < e.xdata:
-            showFromTo = [eOld.xdata, e.xdata]
+    if on_release_event.xdata is not None and onClickEvent.xdata is not None:
+        if onClickEvent.xdata < on_release_event.xdata:
+            showFromTo = [onClickEvent.xdata, on_release_event.xdata]
         else:
-            showFromTo = [e.xdata, eOld.xdata]
+            showFromTo = [on_release_event.xdata, onClickEvent.xdata]
         make_fig()
         return
 
