@@ -492,8 +492,8 @@ fenster.title("Oszilloskop")  # Name des Fensters
 fenster.configure(background="white")
 
 # Labels
-voltage_label = Label(fenster, text="Volts", bg="#FFF", fg="#000", font="Oswald, 18")
-time_label = Label(fenster, text="Time", bg="#FFF", fg="#000", font="Oswald, 18")
+voltage_label = Label(fenster, text="V / Div", bg="#FFF", fg="#000", font="Oswald, 18")
+time_label = Label(fenster, text="s / Div", bg="#FFF", fg="#000", font="Oswald, 18")
 
 triggerstyle_label = Label(fenster, text="Triggerstyle:", bg="#FFF", fg="#000", font="Oswald, 16")
 trigger_value_label = Label(fenster, text="0.0", bg="white", fg="#000", font="Oswald, 18", anchor="e")
